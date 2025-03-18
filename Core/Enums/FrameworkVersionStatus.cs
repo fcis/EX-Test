@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 
 namespace Core.Enums
 {
-    internal class FrameworkVersionStatus
+    public enum FrameworkVersionStatus
     {
+        NEW,
+        PUBLISED,
+        SUPERCEEDED,
+        DELETED
     }
 }

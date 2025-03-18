@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces
 {
-    internal class Class1
+    public interface IPasswordHasher
     {
+        string HashPassword(string password);
+        bool VerifyPassword(string hashedPassword, string providedPassword);
     }
 }
