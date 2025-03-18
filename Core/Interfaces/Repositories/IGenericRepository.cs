@@ -15,12 +15,12 @@ namespace Core.Interfaces.Repositories
         Task<IReadOnlyList<T>> ListAllAsync();
         Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate);
 
-        Task<T?> FindSingleAsync(
+        Task<T?> FindSingleWithIncludeStringAsync(
             Expression<Func<T, bool>> predicate,
             string? includeString = null,
             bool disableTracking = true);
 
-        Task<T?> FindSingleAsync(
+        Task<T?> FindSingleWithIncludesAsync(
             Expression<Func<T, bool>> predicate,
             List<Expression<Func<T, object>>>? includes = null,
             bool disableTracking = true);

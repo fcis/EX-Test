@@ -22,6 +22,8 @@ namespace Core.Interfaces
         IClauseCheckListRepository ClauseCheckLists { get; }
         IOrganizationRepository Organizations { get; }
         IOrganizationDepartmentsRepository OrganizationDepartments { get; }
+        IOrganizationMembershipRepository OrganizationMembershipRepository { get; }
+
         IOrganizationClauseAnswersRepository OrganizationClauseAnswers { get; }
         IOrganizationCheckListAnswersRepository OrganizationCheckListAnswers { get; }
         IRolePermissionsRepository RolePermissions { get; }
