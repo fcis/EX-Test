@@ -2,6 +2,7 @@ using Api.Extensions;
 using Api.Middleware;
 using Application.Interfaces;
 using Infrastructure.Authentication;
+using Infrastructure.Data.Seeds;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,18 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Seed database - this needs to run before using the app
+try
+{
+    await SeedManager.SeedDataAsync(app);
+    Console.WriteLine("Database seeding completed successfully");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Database seeding failed: {ex.Message}");
+    // Optionally, you might want to throw here if seeding is critical
+    // throw;
+}
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {

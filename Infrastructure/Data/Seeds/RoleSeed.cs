@@ -1,11 +1,9 @@
-﻿// Data/Seeds/RoleSeed.cs
-using Core.Common;
+﻿using Core.Common;
 using Core.Entities.Identitiy;
 using Core.Enums;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Infrastructure.Data.Seeds
@@ -13,12 +11,10 @@ namespace Infrastructure.Data.Seeds
     public class RoleSeed
     {
         private readonly AppDbContext _context;
-        private readonly ILogger<RoleSeed> _logger;
 
-        public RoleSeed(AppDbContext context, ILogger<RoleSeed> logger)
+        public RoleSeed(AppDbContext context)
         {
             _context = context;
-            _logger = logger;
         }
 
         public async Task SeedAsync()
@@ -28,7 +24,7 @@ namespace Infrastructure.Data.Seeds
                 // Check if roles already exist
                 if (await _context.Roles.AnyAsync())
                 {
-                    _logger.LogInformation("Roles already seeded");
+                    Console.WriteLine("Roles already seeded");
                     return;
                 }
 
@@ -56,11 +52,11 @@ namespace Infrastructure.Data.Seeds
                 await _context.Roles.AddRangeAsync(roles);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Roles seeded successfully");
+                Console.WriteLine("Roles seeded successfully");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while seeding roles");
+                Console.WriteLine($"An error occurred while seeding roles: {ex.Message}");
                 throw;
             }
         }
