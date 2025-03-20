@@ -80,7 +80,7 @@ namespace Api.Controllers
             if (!response.Success)
                 return StatusCode(response.StatusCode, response);
 
-            return CreatedAtAction(nameof(GetCategoryById), new { id = response.Data.Id }, response);
+            return Ok(response);
         }
 
         /// <summary>

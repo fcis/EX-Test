@@ -68,7 +68,7 @@ namespace Application.Services
                     user.WrongPasswordCount++;
 
                     // Lock account if too many failed attempts
-                    if (user.WrongPasswordCount >= 5)
+                    if (user.WrongPasswordCount >= 3)
                     {
                         user.Status = UserStatus.LOCKED;
                     }
