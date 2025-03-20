@@ -28,29 +28,29 @@ namespace Infrastructure.Extensions
                     configuration.GetConnectionString("DefaultConnection"),
                     b => b.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
 
-            // Register JWT Authentication
-            var jwtSettings = new JwtSettings();
-            configuration.GetSection("JwtSettings").Bind(jwtSettings);
-            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+            //// Register JWT Authentication
+            //var jwtSettings = new JwtSettings();
+            //configuration.GetSection("JwtSettings").Bind(jwtSettings);
+            //services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
 
-            services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings.Issuer,
-                    ValidAudience = jwtSettings.Audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret))
-                };
-            });
+            //services.AddAuthentication(options =>
+            //{
+            //    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            //    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            //})
+            //.AddJwtBearer(options =>
+            //{
+            //    options.TokenValidationParameters = new TokenValidationParameters
+            //    {
+            //        ValidateIssuer = true,
+            //        ValidateAudience = true,
+            //        ValidateLifetime = true,
+            //        ValidateIssuerSigningKey = true,
+            //        ValidIssuer = jwtSettings.Issuer,
+            //        ValidAudience = jwtSettings.Audience,
+            //        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret))
+            //    };
+            //});
 
             // Register repositories (you can replace this with DI scanning if preferred)
             services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));

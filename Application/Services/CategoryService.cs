@@ -14,15 +14,18 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IAuditService _auditService;
+        private readonly ICurrentUserService _currentUserService; 
         private readonly ILogger<CategoryService> _logger;
 
         public CategoryService(
             IUnitOfWork unitOfWork,
             IAuditService auditService,
+            ICurrentUserService currentUserService, 
             ILogger<CategoryService> logger)
         {
             _unitOfWork = unitOfWork;
             _auditService = auditService;
+            _currentUserService = currentUserService; 
             _logger = logger;
         }
 
@@ -94,8 +97,15 @@ namespace Application.Services
 
                 var category = createDto.ToEntity();
                 category.Deleted = false;
-                category.CreationDate = DateTime.UtcNow;
-                category.LastModificationDate = DateTime.UtcNow;
+
+                // Set creation/modification dates and user IDs
+                var now = DateTime.UtcNow;
+                var currentUserId = _currentUserService.UserId ?? 0; // Get current user ID
+
+                category.CreationDate = now;
+                category.LastModificationDate = now;
+                category.CreatedUser = currentUserId;
+                category.LastModificationUser = currentUserId;
 
                 _unitOfWork.Categories.Add(category);
                 await _unitOfWork.CompleteAsync();
@@ -114,7 +124,6 @@ namespace Application.Services
                 return ApiResponse<CategoryDto>.ErrorResponse("Failed to create category");
             }
         }
-
         public async Task<ApiResponse<CategoryDto>> UpdateCategoryAsync(long id, UpdateCategoryDto updateDto)
         {
             try
@@ -139,6 +148,10 @@ namespace Application.Services
                 category.Description = updateDto.Description;
                 category.LastModificationDate = DateTime.UtcNow;
 
+                // Set last modification user
+                var currentUserId = _currentUserService.UserId ?? 0;
+                category.LastModificationUser = currentUserId;
+
                 _unitOfWork.Categories.Update(category);
                 await _unitOfWork.CompleteAsync();
 
@@ -156,7 +169,6 @@ namespace Application.Services
                 return ApiResponse<CategoryDto>.ErrorResponse("Failed to update category");
             }
         }
-
         public async Task<ApiResponse<bool>> DeleteCategoryAsync(long id)
         {
             try
