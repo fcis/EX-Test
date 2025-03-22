@@ -48,7 +48,7 @@ namespace Application.Services
             try
             {
                 // Find user by username
-                var user = await _unitOfWork.Users.GetUserByUsernameAsync(request.Username);
+                var user = await _unitOfWork.Users.GetUserByEmailAsync(request.Email);
                 if (user == null)
                 {
                     return ApiResponse<AuthResponse>.ErrorResponse("Invalid username or password", 401);
@@ -137,7 +137,7 @@ namespace Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during login for user {Username}", request.Username);
+                _logger.LogError(ex, "Error during login for user {Username}", request.Email);
                 return ApiResponse<AuthResponse>.ErrorResponse("Login failed due to a server error");
             }
         }

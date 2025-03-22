@@ -12,7 +12,7 @@ namespace Application.Validators
     {
         public LoginRequestValidator()
         {
-            RuleFor(x => x.Username)
+            RuleFor(x => x.Email)
                 .NotEmpty().WithMessage("Username is required");
 
             RuleFor(x => x.Password)
