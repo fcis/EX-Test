@@ -27,8 +27,8 @@ namespace Infrastructure.Repositories
         public async Task<PagedList<Category>> GetPagedCategoriesAsync(PagingParameters pagingParameters)
         {
             // Start with base query without includes
-            var query = _dbContext.Categories
-                .Where(c => !c.Deleted);
+            var query = _dbContext.Categories.AsNoTracking();
+                //.Where(c => !c.Deleted);
 
             // Apply search if provided
             if (!string.IsNullOrEmpty(pagingParameters.SearchTerm))
