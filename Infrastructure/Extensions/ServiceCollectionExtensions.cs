@@ -62,7 +62,7 @@ namespace Infrastructure.Extensions
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
-            services.AddScoped<IEmailService, EmailService>();
+            services.AddSingleton<IEmailService, EmailService>();
 
 
 

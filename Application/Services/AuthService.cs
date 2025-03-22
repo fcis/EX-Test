@@ -318,7 +318,7 @@ namespace Application.Services
                 await _unitOfWork.CompleteAsync();
 
                 // Generate a reset link
-                var resetLink = $"https://yourapplication.com/reset-password?token={resetToken}";
+                var resetLink = $"http://localhost:5167/reset-password?token={resetToken}";
 
                 // Send email with reset link
                 var subject = "Password Reset Request";
