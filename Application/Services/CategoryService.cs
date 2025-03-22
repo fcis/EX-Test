@@ -33,9 +33,8 @@ namespace Application.Services
         {
             try
             {
-                var categories = await _unitOfWork.Categories.GetPagedListAsync(
-                    pagingParameters,
-                    predicate: c => !c.Deleted);
+                var categories = await _unitOfWork.Categories.GetPagedCategoriesAsync(
+                    pagingParameters);
 
                 var categoryDtos = new List<CategoryDto>();
                 foreach (var category in categories.Items)
