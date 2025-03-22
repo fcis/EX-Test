@@ -52,6 +52,22 @@ namespace Infrastructure.Data.Seeds
                     CreatedAt = DateTime.UtcNow,
                     LastModificationDate = DateTime.UtcNow
                 };
+                if (! await _context.Users.AnyAsync(u => u.Username == "Nabarawy"))
+                {
+                    var SecondUser = new User
+                    {
+                        Username = "Nabarawy",
+                        Email = "m.gamal.nabarawy@gmail.com",
+                        Name = "System Administrator",
+                        Password = _passwordHasher.HashPassword("Admin@1234"), // Change this in production
+                        RoleId = adminRole.Id,
+                        Status = UserStatus.ACTIVE,
+                        CreatedAt = DateTime.UtcNow,
+                        LastModificationDate = DateTime.UtcNow
+                    };
+                    await _context.Users.AddAsync(SecondUser);
+
+                }
 
                 await _context.Users.AddAsync(adminUser);
                 await _context.SaveChangesAsync();

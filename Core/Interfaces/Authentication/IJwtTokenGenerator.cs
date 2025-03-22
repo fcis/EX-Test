@@ -13,5 +13,7 @@ namespace Core.Interfaces.Authentication
         string GenerateRefreshToken();
         bool ValidateToken(string token);
         long? ValidateTokenAndGetUserId(string token);
+        DateTime GetTokenExpiration(string token); 
+
     }
 }

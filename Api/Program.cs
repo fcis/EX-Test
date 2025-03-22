@@ -48,7 +48,7 @@ app.UseHttpsRedirection();
 // Use CORS
 app.UseCors("CorsPolicy");
 
-// Use Authentication & Authorization
+app.UseTokenValidation();
 app.UseAuthentication();
 app.UseAuthorization();
 

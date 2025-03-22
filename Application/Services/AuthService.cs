@@ -7,6 +7,7 @@ using Core.Interfaces;
 using Core.Interfaces.Authentication;
 using Core.Models.Auth;
 using Core.Models.Users;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services
@@ -17,6 +18,9 @@ namespace Application.Services
         private readonly IPasswordHasher _passwordHasher;
         private readonly IJwtTokenGenerator _jwtTokenGenerator;
         private readonly IAuditService _auditService;
+        private readonly IEmailService _emailService;
+        private readonly ITokenBlacklistService _tokenBlacklistService;
+        private readonly ICurrentTokenProvider _currentTokenProvider;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
@@ -24,12 +28,18 @@ namespace Application.Services
             IPasswordHasher passwordHasher,
             IJwtTokenGenerator jwtTokenGenerator,
             IAuditService auditService,
+            IEmailService emailService,
+            ITokenBlacklistService tokenBlacklistService,
+            ICurrentTokenProvider currentTokenProvider,
             ILogger<AuthService> logger)
         {
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
             _jwtTokenGenerator = jwtTokenGenerator;
             _auditService = auditService;
+            _emailService = emailService;
+            _tokenBlacklistService = tokenBlacklistService;
+            _currentTokenProvider = currentTokenProvider;
             _logger = logger;
         }
 
@@ -213,6 +223,18 @@ namespace Application.Services
                     return ApiResponse<bool>.ErrorResponse("User not found", 404);
                 }
 
+                // Extract the JWT token from the current request
+                var currentToken = _currentTokenProvider.GetCurrentToken();
+
+                if (!string.IsNullOrEmpty(currentToken))
+                {
+                    // Get token expiration from JWT
+                    var tokenExpiration = _jwtTokenGenerator.GetTokenExpiration(currentToken);
+
+                    // Add the current token to the blacklist
+                    await _tokenBlacklistService.AddToBlacklistAsync(currentToken, tokenExpiration);
+                }
+
                 // Invalidate refresh token
                 user.Token = null;
                 user.TokenValidity = null;
@@ -231,7 +253,6 @@ namespace Application.Services
                 return ApiResponse<bool>.ErrorResponse("Logout failed due to a server error");
             }
         }
-
         public async Task<ApiResponse<bool>> ChangePasswordAsync(ChangePasswordRequest request)
         {
             try
@@ -275,33 +296,88 @@ namespace Application.Services
             }
         }
 
+        public async Task<ApiResponse<bool>> ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            try
+            {
+                var user = await _unitOfWork.Users.GetUserByEmailAsync(request.Email);
+                if (user == null)
+                {
+                    // For security reasons, still return success even if email doesn't exist
+                    return ApiResponse<bool>.SuccessResponse(true, "If your email exists in our system, you will receive password reset instructions");
+                }
+
+                // Generate a reset token
+                var resetToken = GenerateSecureToken();
+
+                // Store the reset token with an expiration time (24 hours)
+                user.Token = resetToken;
+                user.TokenValidity = DateTime.UtcNow.AddHours(24);
+
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.CompleteAsync();
+
+                // Generate a reset link
+                var resetLink = $"https://yourapplication.com/reset-password?token={resetToken}";
+
+                // Send email with reset link
+                var subject = "Password Reset Request";
+                var body = $@"
+                <html>
+                <body>
+                    <h2>Password Reset Request</h2>
+                    <p>Hello {user.Name},</p>
+                    <p>We received a request to reset your password. If you didn't make this request, you can safely ignore this email.</p>
+                    <p>To reset your password, click on the link below:</p>
+                    <p><a href='{resetLink}'>Reset Password</a></p>
+                    <p>This link will expire in 24 hours.</p>
+                    <p>Thank you,</p>
+                    <p>The Support Team</p>
+                </body>
+                </html>";
+
+                var emailSent = await _emailService.SendEmailAsync(user.Email, subject, body, true);
+
+                if (!emailSent)
+                {
+                    _logger.LogWarning("Failed to send password reset email to {Email}", user.Email);
+                    // Don't fail the operation but log the issue
+                }
+
+                await _auditService.LogActionAsync("Auth", user.Id, "EDIT", "Password reset requested");
+
+                return ApiResponse<bool>.SuccessResponse(true, "If your email exists in our system, you will receive password reset instructions");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing forgot password request for email {Email}", request.Email);
+                return ApiResponse<bool>.ErrorResponse("Forgot password request failed due to a server error");
+            }
+        }
+
         public async Task<ApiResponse<bool>> ResetPasswordAsync(ResetPasswordRequest request)
         {
             try
             {
-                // This would typically validate a reset token sent via email
-                // For simplicity, we'll assume the token is valid and identifies the user
+                // Find the user by the token
+                var user = await _unitOfWork.Users.FindSingleWithIncludesAsync(
+                    u => u.Token == request.Token &&
+                         u.TokenValidity.HasValue &&
+                         u.TokenValidity.Value > DateTime.UtcNow);
 
-                // For a real implementation, you would:
-                // 1. Verify the token against stored reset tokens
-                // 2. Get the user associated with the token
-                // 3. Check if the token is still valid (not expired)
-
-                // Mock implementation - assuming token is the user's ID for demonstration
-                long userId;
-                if (!long.TryParse(request.Token, out userId))
-                {
-                    return ApiResponse<bool>.ErrorResponse("Invalid reset token", 400);
-                }
-
-                var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (user == null)
                 {
-                    return ApiResponse<bool>.ErrorResponse("Invalid reset token", 400);
+                    return ApiResponse<bool>.ErrorResponse("Invalid or expired reset token", 400);
                 }
 
                 // Update password
                 user.Password = _passwordHasher.HashPassword(request.NewPassword);
+
+                // Clear the token after successful reset
+                user.Token = null;
+                user.TokenValidity = null;
+
+                // Update modified timestamp
                 user.LastModificationDate = DateTime.UtcNow;
 
                 // Reset wrong password count
@@ -316,7 +392,23 @@ namespace Application.Services
                 _unitOfWork.Users.Update(user);
                 await _unitOfWork.CompleteAsync();
 
-                await _auditService.LogActionAsync("Auth", user.Id, "EDIT", "Password reset");
+                await _auditService.LogActionAsync("Auth", user.Id, "EDIT", "Password reset completed");
+
+                // Send password reset confirmation email
+                var subject = "Password Reset Confirmation";
+                var body = $@"
+                <html>
+                <body>
+                    <h2>Password Reset Confirmation</h2>
+                    <p>Hello {user.Name},</p>
+                    <p>Your password has been successfully reset.</p>
+                    <p>If you did not request this change, please contact support immediately.</p>
+                    <p>Thank you,</p>
+                    <p>The Support Team</p>
+                </body>
+                </html>";
+
+                await _emailService.SendEmailAsync(user.Email, subject, body, true);
 
                 return ApiResponse<bool>.SuccessResponse(true, "Password reset successful");
             }
@@ -327,32 +419,13 @@ namespace Application.Services
             }
         }
 
-        public async Task<ApiResponse<bool>> ForgotPasswordAsync(ForgotPasswordRequest request)
+        // Helper method to generate a secure token
+        private string GenerateSecureToken()
         {
-            try
-            {
-                var user = await _unitOfWork.Users.GetUserByEmailAsync(request.Email);
-                if (user == null)
-                {
-                    // For security reasons, still return success even if email doesn't exist
-                    return ApiResponse<bool>.SuccessResponse(true, "If your email exists in our system, you will receive password reset instructions");
-                }
-
-                // In a real implementation, you would:
-                // 1. Generate a password reset token
-                // 2. Save it to the database with an expiration time
-                // 3. Send an email to the user with a link containing the token
-
-                // For this implementation, we'll just log the request
-                await _auditService.LogActionAsync("Auth", user.Id, "EDIT", "Password reset requested");
-
-                return ApiResponse<bool>.SuccessResponse(true, "If your email exists in our system, you will receive password reset instructions");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing forgot password request for email {Email}", request.Email);
-                return ApiResponse<bool>.ErrorResponse("Forgot password request failed due to a server error");
-            }
+            var randomNumber = new byte[32];
+            using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
         }
     }
 }

@@ -149,5 +149,22 @@ namespace Infrastructure.Authentication
                 return null;
             }
         }
+        public DateTime GetTokenExpiration(string token)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var jwtToken = tokenHandler.ReadJwtToken(token);
+
+                if (jwtToken.ValidTo != DateTime.MinValue)
+                    return jwtToken.ValidTo.ToUniversalTime();
+
+                return DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes);
+            }
+            catch
+            {
+                return DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes);
+            }
+        }
     }
 }

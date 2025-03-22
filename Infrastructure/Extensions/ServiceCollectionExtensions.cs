@@ -7,6 +7,7 @@ using Core.Interfaces.Repositories;
 using Infrastructure.Authentication;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -28,29 +29,13 @@ namespace Infrastructure.Extensions
                     configuration.GetConnectionString("DefaultConnection"),
                     b => b.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
 
-            //// Register JWT Authentication
-            //var jwtSettings = new JwtSettings();
-            //configuration.GetSection("JwtSettings").Bind(jwtSettings);
-            //services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+            // Configure SMTP Settings
+            services.Configure<SmtpSettings>(configuration.GetSection("SMTP"));
 
-            //services.AddAuthentication(options =>
-            //{
-            //    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            //    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            //})
-            //.AddJwtBearer(options =>
-            //{
-            //    options.TokenValidationParameters = new TokenValidationParameters
-            //    {
-            //        ValidateIssuer = true,
-            //        ValidateAudience = true,
-            //        ValidateLifetime = true,
-            //        ValidateIssuerSigningKey = true,
-            //        ValidIssuer = jwtSettings.Issuer,
-            //        ValidAudience = jwtSettings.Audience,
-            //        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret))
-            //    };
-            //});
+            services.AddDistributedMemoryCache();
+            services.AddHttpContextAccessor(); // Important for the CurrentTokenProvider
+            services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
+            services.AddScoped<ICurrentTokenProvider, CurrentTokenProvider>();
 
             // Register repositories (you can replace this with DI scanning if preferred)
             services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -77,6 +62,9 @@ namespace Infrastructure.Extensions
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<IEmailService, EmailService>();
+
+
 
             return services;
         }
