@@ -26,33 +26,7 @@ namespace Api.Controllers
             _smtpSettings = smtpSettings.Value;
         }
 
-        /// <summary>
-        /// Test SMTP server connection
-        /// </summary>
-        [HttpGet("test-connection")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> TestConnection()
-        {
-            // Cast to EmailService to access the test method
-            if (_emailService is EmailService service)
-            {
-                var (success, message) = await service.TestConnectionAsync();
 
-                if (success)
-                {
-                    return Ok(ApiResponse<string>.SuccessResponse(message));
-                }
-                else
-                {
-                    return StatusCode(500, ApiResponse<string>.ErrorResponse(message));
-                }
-            }
-
-            return StatusCode(500, ApiResponse<string>.ErrorResponse(
-                "Could not test SMTP connection - service implementation not available"));
-        }
 
         /// <summary>
         /// Send a test email
@@ -91,7 +65,7 @@ namespace Api.Controllers
             </body>
             </html>";
 
-            bool success = await _emailService.SendEmailAsync(request.Email, subject, body, true);
+            bool success = await _emailService.SendAsync("m.gamal.nabarawy@gmail.com",request.Email, subject, body);
 
             if (success)
             {

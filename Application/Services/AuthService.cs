@@ -318,7 +318,7 @@ namespace Application.Services
                 await _unitOfWork.CompleteAsync();
 
                 // Generate a reset link
-                var resetLink = $"http://localhost:5167/reset-password?token={resetToken}";
+                var resetLink = $"https://localhost:7229/Auth/reset-password?token={resetToken}";
 
                 // Send email with reset link
                 var subject = "Password Reset Request";
@@ -336,7 +336,7 @@ namespace Application.Services
                 </body>
                 </html>";
 
-                var emailSent = await _emailService.SendEmailAsync(user.Email, subject, body, true);
+                var emailSent = await _emailService.SendAsync("m.gamal.nabarawy@gmail.com",user.Email, subject, body);
 
                 if (!emailSent)
                 {
@@ -408,7 +408,7 @@ namespace Application.Services
                 </body>
                 </html>";
 
-                await _emailService.SendEmailAsync(user.Email, subject, body, true);
+                await _emailService.SendAsync("",user.Email, subject, body);
 
                 return ApiResponse<bool>.SuccessResponse(true, "Password reset successful");
             }
