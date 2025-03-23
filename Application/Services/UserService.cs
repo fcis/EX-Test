@@ -8,9 +8,16 @@ using Core.Interfaces;
 using Core.Interfaces.Authentication;
 using Core.Models.Users;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Application.Services
 {
+    /// <summary>
+    /// Implementation of the User Service
+    /// </summary>
     public class UserService : IUserService
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -30,7 +37,10 @@ namespace Application.Services
             _logger = logger;
         }
 
-        public async Task<ApiResponse<User>> GetUserByIdAsync(long id)
+        /// <summary>
+        /// Gets a user by ID
+        /// </summary>
+        public async Task<ApiResponse<UserDto>> GetUserByIdAsync(long id)
         {
             try
             {
@@ -43,34 +53,51 @@ namespace Application.Services
 
                 if (user == null)
                 {
-                    return ApiResponse<User>.ErrorResponse("User not found", 404);
+                    return ApiResponse<UserDto>.ErrorResponse("User not found", 404);
                 }
 
-                return ApiResponse<User>.SuccessResponse(user);
+                var userDto = user.ToDto();
+                return ApiResponse<UserDto>.SuccessResponse(userDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user with ID {Id}", id);
-                return ApiResponse<User>.ErrorResponse("Failed to retrieve user");
+                return ApiResponse<UserDto>.ErrorResponse("Failed to retrieve user");
             }
         }
 
-        public async Task<ApiResponse<PagedList<User>>> GetUsersAsync(PagingParameters pagingParameters)
+        /// <summary>
+        /// Gets paged list of users
+        /// </summary>
+        public async Task<ApiResponse<PagedList<UserListDto>>> GetUsersAsync(PagingParameters pagingParameters)
         {
             try
             {
                 var users = await _unitOfWork.Users.GetPagedUsersAsync(pagingParameters);
 
-                return ApiResponse<PagedList<User>>.SuccessResponse(users);
+                // Map entities to DTOs to avoid circular references
+                var userDtos = users.Items.Select(u => u.ToListDto()).ToList();
+
+                // Create new paged list with DTOs
+                var pagedDtos = new PagedList<UserListDto>(
+                    userDtos,
+                    users.TotalCount,
+                    users.PageNumber,
+                    users.PageSize);
+
+                return ApiResponse<PagedList<UserListDto>>.SuccessResponse(pagedDtos);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting users");
-                return ApiResponse<PagedList<User>>.ErrorResponse("Failed to retrieve users");
+                return ApiResponse<PagedList<UserListDto>>.ErrorResponse("Failed to retrieve users");
             }
         }
 
-        public async Task<ApiResponse<User>> CreateUserAsync(CreateUserRequest request)
+        /// <summary>
+        /// Creates a new user
+        /// </summary>
+        public async Task<ApiResponse<UserDto>> CreateUserAsync(CreateUserRequest request)
         {
             try
             {
@@ -78,21 +105,21 @@ namespace Application.Services
                 var existingUsername = await _unitOfWork.Users.GetUserByUsernameAsync(request.Username);
                 if (existingUsername != null)
                 {
-                    return ApiResponse<User>.ErrorResponse("Username already exists");
+                    return ApiResponse<UserDto>.ErrorResponse("Username already exists");
                 }
 
                 // Check if email already exists
                 var existingEmail = await _unitOfWork.Users.GetUserByEmailAsync(request.Email);
                 if (existingEmail != null)
                 {
-                    return ApiResponse<User>.ErrorResponse("Email already exists");
+                    return ApiResponse<UserDto>.ErrorResponse("Email already exists");
                 }
 
                 // Verify role exists
                 var role = await _unitOfWork.Roles.GetByIdAsync(request.RoleId);
                 if (role == null)
                 {
-                    return ApiResponse<User>.ErrorResponse("Role not found", 404);
+                    return ApiResponse<UserDto>.ErrorResponse("Role not found", 404);
                 }
 
                 // Verify organization if specified
@@ -101,7 +128,7 @@ namespace Application.Services
                     var organization = await _unitOfWork.Organizations.GetByIdAsync(request.OrganizationId.Value);
                     if (organization == null || organization.Status == OrganizationStatus.DELETED)
                     {
-                        return ApiResponse<User>.ErrorResponse("Organization not found", 404);
+                        return ApiResponse<UserDto>.ErrorResponse("Organization not found", 404);
                     }
 
                     // Verify department if specified
@@ -110,13 +137,13 @@ namespace Application.Services
                         var department = await _unitOfWork.OrganizationDepartments.GetByIdAsync(request.OrganizationDepartmentId.Value);
                         if (department == null || department.Deleted || department.OrganizationId != request.OrganizationId.Value)
                         {
-                            return ApiResponse<User>.ErrorResponse("Department not found or does not belong to the specified organization", 404);
+                            return ApiResponse<UserDto>.ErrorResponse("Department not found or does not belong to the specified organization", 404);
                         }
                     }
                 }
                 else if (request.OrganizationDepartmentId.HasValue)
                 {
-                    return ApiResponse<User>.ErrorResponse("Cannot specify a department without an organization");
+                    return ApiResponse<UserDto>.ErrorResponse("Cannot specify a department without an organization");
                 }
 
                 // Create user
@@ -139,23 +166,35 @@ namespace Application.Services
 
                 await _auditService.LogActionAsync("User", user.Id, "ADD", $"Created user: {user.Username}");
 
-                return ApiResponse<User>.SuccessResponse(user, "User created successfully");
+                // Fetch the user with relations to create a proper DTO
+                var createdUser = await _unitOfWork.Users.FindSingleWithIncludesAsync(
+                    u => u.Id == user.Id,
+                    includes: new List<System.Linq.Expressions.Expression<Func<User, object>>>
+                    {
+                        u => u.Role
+                    });
+
+                var userDto = createdUser.ToDto();
+                return ApiResponse<UserDto>.SuccessResponse(userDto, "User created successfully");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating user");
-                return ApiResponse<User>.ErrorResponse("Failed to create user");
+                return ApiResponse<UserDto>.ErrorResponse("Failed to create user");
             }
         }
 
-        public async Task<ApiResponse<User>> UpdateUserAsync(long id, UpdateUserRequest request)
+        /// <summary>
+        /// Updates an existing user
+        /// </summary>
+        public async Task<ApiResponse<UserDto>> UpdateUserAsync(long id, UpdateUserRequest request)
         {
             try
             {
                 var user = await _unitOfWork.Users.GetByIdAsync(id);
                 if (user == null || user.Status == UserStatus.DELETED)
                 {
-                    return ApiResponse<User>.ErrorResponse("User not found", 404);
+                    return ApiResponse<UserDto>.ErrorResponse("User not found", 404);
                 }
 
                 // Check if email already exists (except current user)
@@ -164,7 +203,7 @@ namespace Application.Services
                     var existingEmail = await _unitOfWork.Users.GetUserByEmailAsync(request.Email);
                     if (existingEmail != null && existingEmail.Id != id)
                     {
-                        return ApiResponse<User>.ErrorResponse("Email already exists");
+                        return ApiResponse<UserDto>.ErrorResponse("Email already exists");
                     }
                 }
 
@@ -172,7 +211,7 @@ namespace Application.Services
                 var role = await _unitOfWork.Roles.GetByIdAsync(request.RoleId);
                 if (role == null)
                 {
-                    return ApiResponse<User>.ErrorResponse("Role not found", 404);
+                    return ApiResponse<UserDto>.ErrorResponse("Role not found", 404);
                 }
 
                 // Verify organization if specified
@@ -181,7 +220,7 @@ namespace Application.Services
                     var organization = await _unitOfWork.Organizations.GetByIdAsync(request.OrganizationId.Value);
                     if (organization == null || organization.Status == OrganizationStatus.DELETED)
                     {
-                        return ApiResponse<User>.ErrorResponse("Organization not found", 404);
+                        return ApiResponse<UserDto>.ErrorResponse("Organization not found", 404);
                     }
 
                     // Verify department if specified
@@ -190,13 +229,13 @@ namespace Application.Services
                         var department = await _unitOfWork.OrganizationDepartments.GetByIdAsync(request.OrganizationDepartmentId.Value);
                         if (department == null || department.Deleted || department.OrganizationId != request.OrganizationId.Value)
                         {
-                            return ApiResponse<User>.ErrorResponse("Department not found or does not belong to the specified organization", 404);
+                            return ApiResponse<UserDto>.ErrorResponse("Department not found or does not belong to the specified organization", 404);
                         }
                     }
                 }
                 else if (request.OrganizationDepartmentId.HasValue)
                 {
-                    return ApiResponse<User>.ErrorResponse("Cannot specify a department without an organization");
+                    return ApiResponse<UserDto>.ErrorResponse("Cannot specify a department without an organization");
                 }
 
                 // Update user
@@ -212,15 +251,27 @@ namespace Application.Services
 
                 await _auditService.LogActionAsync("User", user.Id, "EDIT", $"Updated user: {user.Username}");
 
-                return ApiResponse<User>.SuccessResponse(user, "User updated successfully");
+                // Fetch the updated user with relations to create a proper DTO
+                var updatedUser = await _unitOfWork.Users.FindSingleWithIncludesAsync(
+                    u => u.Id == user.Id,
+                    includes: new List<System.Linq.Expressions.Expression<Func<User, object>>>
+                    {
+                        u => u.Role
+                    });
+
+                var userDto = updatedUser.ToDto();
+                return ApiResponse<UserDto>.SuccessResponse(userDto, "User updated successfully");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating user with ID {Id}", id);
-                return ApiResponse<User>.ErrorResponse("Failed to update user");
+                return ApiResponse<UserDto>.ErrorResponse("Failed to update user");
             }
         }
 
+        /// <summary>
+        /// Deletes a user (soft delete)
+        /// </summary>
         public async Task<ApiResponse<bool>> DeleteUserAsync(long id)
         {
             try
@@ -249,6 +300,9 @@ namespace Application.Services
             }
         }
 
+        /// <summary>
+        /// Activates a user
+        /// </summary>
         public async Task<ApiResponse<bool>> ActivateUserAsync(long id)
         {
             try
@@ -282,6 +336,9 @@ namespace Application.Services
             }
         }
 
+        /// <summary>
+        /// Deactivates a user
+        /// </summary>
         public async Task<ApiResponse<bool>> DeactivateUserAsync(long id)
         {
             try
@@ -315,7 +372,10 @@ namespace Application.Services
             }
         }
 
-        public async Task<ApiResponse<PagedList<User>>> GetUsersByOrganizationAsync(long organizationId, PagingParameters pagingParameters)
+        /// <summary>
+        /// Gets users by organization with pagination
+        /// </summary>
+        public async Task<ApiResponse<PagedList<UserListDto>>> GetUsersByOrganizationAsync(long organizationId, PagingParameters pagingParameters)
         {
             try
             {
@@ -323,7 +383,7 @@ namespace Application.Services
                 var organization = await _unitOfWork.Organizations.GetByIdAsync(organizationId);
                 if (organization == null || organization.Status == OrganizationStatus.DELETED)
                 {
-                    return ApiResponse<PagedList<User>>.ErrorResponse("Organization not found", 404);
+                    return ApiResponse<PagedList<UserListDto>>.ErrorResponse("Organization not found", 404);
                 }
 
                 var users = await _unitOfWork.Users.GetPagedListAsync(
@@ -335,12 +395,22 @@ namespace Application.Services
                         u => u.OrganizationDepartment
                     });
 
-                return ApiResponse<PagedList<User>>.SuccessResponse(users);
+                // Map entities to DTOs to avoid circular references
+                var userDtos = users.Items.Select(u => u.ToListDto()).ToList();
+
+                // Create new paged list with DTOs
+                var pagedDtos = new PagedList<UserListDto>(
+                    userDtos,
+                    users.TotalCount,
+                    users.PageNumber,
+                    users.PageSize);
+
+                return ApiResponse<PagedList<UserListDto>>.SuccessResponse(pagedDtos);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting users for organization with ID {OrganizationId}", organizationId);
-                return ApiResponse<PagedList<User>>.ErrorResponse("Failed to retrieve users");
+                return ApiResponse<PagedList<UserListDto>>.ErrorResponse("Failed to retrieve users");
             }
         }
     }

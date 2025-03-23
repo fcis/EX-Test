@@ -30,7 +30,6 @@ namespace Api.Controllers
         /// Test SMTP server connection
         /// </summary>
         [HttpGet("test-connection")]
-        [Authorize(Roles = "Admin")] // Only allow admins to test
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]

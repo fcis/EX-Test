@@ -78,7 +78,7 @@ namespace Api.Middleware
                     response = ApiResponse<string>.ErrorResponse(
                         _environment.IsDevelopment()
                             ? exception.Message
-                            : "An error occurred while processing your request.");
+                            : "An error occurred while processing your request.",500);
                     break;
             }
 

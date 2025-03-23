@@ -1,4 +1,5 @@
-﻿using Core.Common;
+﻿using Application.Interfaces;
+using Core.Common;
 using Core.Entities.Identitiy;
 using Core.Interfaces.Authentication;
 using Core.Models.Users;
@@ -37,15 +38,15 @@ namespace Api.Controllers
                 return StatusCode(response.StatusCode, response);
 
             // Add pagination header
-            Response.Headers.Add("X-Pagination", System.Text.Json.JsonSerializer.Serialize(new
-            {
-                totalCount = response.Data.TotalCount,
-                pageSize = response.Data.PageSize,
-                currentPage = response.Data.PageNumber,
-                totalPages = response.Data.TotalPages,
-                hasPrevious = response.Data.HasPreviousPage,
-                hasNext = response.Data.HasNextPage
-            }));
+            //Response.Headers.Add("X-Pagination", System.Text.Json.JsonSerializer.Serialize(new
+            //{
+            //    totalCount = response.Data.TotalCount,
+            //    pageSize = response.Data.PageSize,
+            //    currentPage = response.Data.PageNumber,
+            //    totalPages = response.Data.TotalPages,
+            //    hasPrevious = response.Data.HasPreviousPage,
+            //    hasNext = response.Data.HasNextPage
+            //}));
 
             return Ok(response);
         }
