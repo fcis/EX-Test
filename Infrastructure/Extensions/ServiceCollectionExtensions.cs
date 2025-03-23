@@ -1,5 +1,4 @@
-﻿// Extensions/ServiceCollectionExtensions.cs
-using Application.Interfaces;
+﻿using Application.Interfaces;
 using Core.Common;
 using Core.Interfaces;
 using Core.Interfaces.Authentication;

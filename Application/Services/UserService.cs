@@ -59,14 +59,7 @@ namespace Application.Services
         {
             try
             {
-                var users = await _unitOfWork.Users.GetPagedListAsync(
-                    pagingParameters,
-                    predicate: u => u.Status != UserStatus.DELETED,
-                    includes: new List<System.Linq.Expressions.Expression<Func<User, object>>>
-                    {
-                        u => u.Role,
-                        u => u.Organization
-                    });
+                var users = await _unitOfWork.Users.GetPagedUsersAsync(pagingParameters);
 
                 return ApiResponse<PagedList<User>>.SuccessResponse(users);
             }
