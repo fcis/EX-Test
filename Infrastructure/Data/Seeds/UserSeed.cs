@@ -57,7 +57,7 @@ namespace Infrastructure.Data.Seeds
                     var SecondUser = new User
                     {
                         Username = "Nabarawy",
-                        Email = "m.gamal.nabarawy@gmail.com",
+                        Email = "tepic41647@birige.com",
                         Name = "System Administrator",
                         Password = _passwordHasher.HashPassword("Admin@1234"), // Change this in production
                         RoleId = adminRole.Id,
