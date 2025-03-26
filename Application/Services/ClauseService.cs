@@ -14,14 +14,17 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IAuditService _auditService;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<ClauseService> _logger;
 
         public ClauseService(
             IUnitOfWork unitOfWork,
             IAuditService auditService,
+            ICurrentUserService currentUserService,
             ILogger<ClauseService> logger)
         {
             _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
             _auditService = auditService;
             _logger = logger;
         }
@@ -90,19 +93,73 @@ namespace Application.Services
                     return ApiResponse<ClauseDto>.ErrorResponse("A clause with this name already exists");
                 }
 
-                var clause = createDto.ToEntity();
-                clause.Deleted = false;
-                clause.CreationDate = DateTime.UtcNow;
-                clause.LastModificationDate = DateTime.UtcNow;
+                await _unitOfWork.BeginTransactionAsync();
 
-                _unitOfWork.Clauses.Add(clause);
-                await _unitOfWork.CompleteAsync();
+                try
+                {
+                    // Create the clause
+                    var clause = new Clause
+                    {
+                        Name = createDto.Name,
+                        Description = createDto.Description,
+                        Deleted = false,
+                        CreationDate = DateTime.UtcNow,
+                        LastModificationDate = DateTime.UtcNow,
+                        CreatedUser = _currentUserService.UserId ?? 0,
+                        LastModificationUser = _currentUserService.UserId ?? 0
+                    };
 
-                await _auditService.LogActionAsync("Clause", clause.Id, "ADD",
-                    $"Created clause: {clause.Name}");
+                    _unitOfWork.Clauses.Add(clause);
+                    await _unitOfWork.CompleteAsync();
 
-                var clauseDto = clause.ToDto();
-                return ApiResponse<ClauseDto>.SuccessResponse(clauseDto, "Clause created successfully");
+                    if (createDto.CheckListItems != null && createDto.CheckListItems.Any())
+                    {
+                        foreach (var itemName in createDto.CheckListItems)
+                        {
+                            if (!string.IsNullOrEmpty(itemName))
+                            {
+                                var checkListItem = new ClauseCheckList
+                                {
+                                    ClauseId = clause.Id,
+                                    Name = itemName,
+                                    Deleted = false,
+                                    CreationDate = DateTime.UtcNow,
+                                    LastModificationDate = DateTime.UtcNow,
+                                    CreatedUser = _currentUserService.UserId ?? 0,
+                                    LastModificationUser = _currentUserService.UserId ?? 0
+                                };
+
+                                _unitOfWork.ClauseCheckLists.Add(checkListItem);
+                            }
+                        }
+
+                        await _unitOfWork.CompleteAsync();
+                    }
+
+                    // Commit the transaction
+                    await _unitOfWork.CommitTransactionAsync();
+
+                    await _auditService.LogActionAsync("Clause", clause.Id, "ADD",
+                        $"Created clause: {clause.Name} with {createDto.CheckListItems?.Count ?? 0} checklist items");
+
+                    // Get the clause with checklists
+                    var createdClause = await _unitOfWork.Clauses.FindSingleWithIncludesAsync(
+                        c => c.Id == clause.Id,
+                        includes: new List<System.Linq.Expressions.Expression<Func<Clause, object>>>
+                        {
+                        c => c.CheckLists
+                        });
+
+                    var clauseDto = createdClause.ToDto();
+                    return ApiResponse<ClauseDto>.SuccessResponse(clauseDto, "Clause created successfully");
+                }
+                catch (Exception ex)
+                {
+                    // Rollback the transaction if anything fails
+                    await _unitOfWork.RollbackTransactionAsync();
+                    _logger.LogError(ex, "Error in transaction while creating clause");
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -110,7 +167,6 @@ namespace Application.Services
                 return ApiResponse<ClauseDto>.ErrorResponse("Failed to create clause");
             }
         }
-
         public async Task<ApiResponse<ClauseDto>> UpdateClauseAsync(long id, UpdateClauseDto updateDto)
         {
             try
