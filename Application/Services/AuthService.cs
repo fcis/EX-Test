@@ -42,7 +42,67 @@ namespace Application.Services
             _currentTokenProvider = currentTokenProvider;
             _logger = logger;
         }
+        public async Task<ApiResponse<AuthResponse>> GetCurrentUserByTokenAsync(string token)
+        {
+            try
+            {
+                // Validate the token and extract user ID
+                var userId = _jwtTokenGenerator.ValidateTokenAndGetUserId(token);
 
+                if (!userId.HasValue)
+                {
+                    return ApiResponse<AuthResponse>.ErrorResponse("Invalid token", 401);
+                }
+
+                // Get user by ID with related entities
+                var user = await _unitOfWork.Users.FindSingleWithIncludesAsync(
+                    u => u.Id == userId.Value && u.Status != UserStatus.DELETED,
+                    includes: new List<System.Linq.Expressions.Expression<Func<User, object>>>
+                    {
+                u => u.Role,
+                u => u.Organization
+                    });
+
+                if (user == null)
+                {
+                    return ApiResponse<AuthResponse>.ErrorResponse("User not found", 404);
+                }
+
+                // Check if token is blacklisted
+                var isBlacklisted = await _tokenBlacklistService.IsBlacklistedAsync(token);
+                if (isBlacklisted)
+                {
+                    return ApiResponse<AuthResponse>.ErrorResponse("Token has been revoked", 401);
+                }
+
+                // Load role permissions
+                var role = await _unitOfWork.Roles.GetRoleWithPermissionsAsync(user.RoleId);
+                var permissions = role.Permissions.Select(p => p.Permission.Name).ToList();
+
+                // Create response
+                var response = new AuthResponse
+                {
+                    Token = token,
+                    RefreshToken = user.Token ?? string.Empty,
+                    TokenExpiration = _jwtTokenGenerator.GetTokenExpiration(token),
+                    UserId = user.Id,
+                    Username = user.Username,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = role.Name,
+                    Permissions = permissions,
+                    OrganizationId = user.OrganizationId,
+                    OrganizationName = user.Organization?.Name
+                };
+
+                return ApiResponse<AuthResponse>.SuccessResponse(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting current user data from token");
+                return ApiResponse<AuthResponse>.ErrorResponse("Failed to retrieve user data");
+            }
+        }
         public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request)
         {
             try

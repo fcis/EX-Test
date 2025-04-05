@@ -13,6 +13,8 @@ namespace Core.Interfaces.Authentication
     {
         Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request);
         Task<ApiResponse<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request);
+        Task<ApiResponse<AuthResponse>> GetCurrentUserByTokenAsync(string token);
+
         Task<ApiResponse<bool>> LogoutAsync(string username);
         Task<ApiResponse<bool>> ChangePasswordAsync(ChangePasswordRequest request);
         Task<ApiResponse<bool>> ResetPasswordAsync(ResetPasswordRequest request);

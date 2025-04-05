@@ -1,4 +1,5 @@
-﻿using Core.Interfaces.Authentication;
+﻿using Core.Common;
+using Core.Interfaces.Authentication;
 using Core.Models.Auth;
 using Core.Models.Users;
 using Microsoft.AspNetCore.Authorization;
@@ -94,7 +95,28 @@ namespace Api.Controllers
 
             return Ok(response);
         }
+        /// <summary>
+        /// Get current user data by token
+        /// </summary>
+        [HttpGet("current-user")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            // Extract token from Authorization header
+            var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
 
+            if (string.IsNullOrEmpty(token))
+                return Unauthorized(ApiResponse<string>.ErrorResponse("No token provided", 401));
+
+            var response = await _authService.GetCurrentUserByTokenAsync(token);
+
+            if (!response.Success)
+                return StatusCode(response.StatusCode, response);
+
+            return Ok(response);
+        }
         /// <summary>
         /// Forgot password
         /// </summary>

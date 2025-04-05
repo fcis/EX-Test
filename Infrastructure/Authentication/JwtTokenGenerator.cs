@@ -1,5 +1,4 @@
-﻿// Authentication/JwtTokenGenerator.cs
-using Core.Common;
+﻿using Core.Common;
 using Core.Entities.Identitiy;
 using Core.Interfaces.Authentication;
 using Microsoft.Extensions.Logging;
