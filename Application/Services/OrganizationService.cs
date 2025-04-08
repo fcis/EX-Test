@@ -15,15 +15,18 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IAuditService _auditService;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<OrganizationService> _logger;
 
         public OrganizationService(
             IUnitOfWork unitOfWork,
             IAuditService auditService,
+            ICurrentUserService currentUserService,
             ILogger<OrganizationService> logger)
         {
             _unitOfWork = unitOfWork;
             _auditService = auditService;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
@@ -96,6 +99,18 @@ namespace Application.Services
                     }
                 }
 
+                // Add check for unique website
+                if (!string.IsNullOrEmpty(createDto.Website))
+                {
+                    var existingByWebsite = await _unitOfWork.Organizations.FindSingleWithIncludesAsync(
+                        o => o.Website == createDto.Website && o.Status != OrganizationStatus.DELETED);
+
+                    if (existingByWebsite != null)
+                    {
+                        return ApiResponse<OrganizationDto>.ErrorResponse("An organization with this website already exists");
+                    }
+                }
+
                 // Check if organization with same name exists
                 var existingByName = await _unitOfWork.Organizations.FindSingleWithIncludesAsync(
                     o => o.Name == createDto.Name && o.Status != OrganizationStatus.DELETED);
@@ -122,6 +137,8 @@ namespace Application.Services
                     await _unitOfWork.CompleteAsync();
 
                     // Add departments
+                    var currentUserId = _currentUserService.UserId ?? 0; // Get current user ID
+
                     foreach (var deptDto in departments)
                     {
                         var department = new OrganizationDepartments
@@ -129,6 +146,8 @@ namespace Application.Services
                             OrganizationId = organization.Id,
                             Name = deptDto.Name,
                             Deleted = false,
+                            CreatedUser = currentUserId,
+                            LastModificationUser = currentUserId,
                             CreationDate = DateTime.UtcNow,
                             LastModificationDate = DateTime.UtcNow
                         };

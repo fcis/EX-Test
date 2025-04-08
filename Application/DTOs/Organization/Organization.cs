@@ -46,10 +46,11 @@ namespace Application.DTOs.Organization
         [Required]
         [StringLength(100, MinimumLength = 3)]
         public string Name { get; set; } = string.Empty;
-
+        [Required]
         [Url]
         public string? Website { get; set; }
 
+        [Required]
         [EmailAddress]
         public string? Email { get; set; }
 
@@ -63,6 +64,7 @@ namespace Application.DTOs.Organization
         public string? Description { get; set; }
 
         [Required]
+        [MinLength(1, ErrorMessage = "At least one department is required")]
         public List<CreateOrganizationDepartmentDto> Departments { get; set; } = new List<CreateOrganizationDepartmentDto>();
     }
 
