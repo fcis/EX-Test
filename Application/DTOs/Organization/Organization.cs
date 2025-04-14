@@ -39,6 +39,8 @@ namespace Application.DTOs.Organization
         public int DepartmentsCount { get; set; }
         public int UsersCount { get; set; }
         public int FrameworksCount { get; set; }
+        public string logoUrl { get; set; } = String.Empty;
+        public DateTime LastModificationDate { get; set; }
     }
 
     public class CreateOrganizationDto

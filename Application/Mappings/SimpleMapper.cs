@@ -215,7 +215,9 @@ namespace Application.Mappings
                 CreationDate = entity.CreationDate,
                 DepartmentsCount = entity.Departments?.Count(d => !d.Deleted) ?? 0,
                 UsersCount = entity.Users?.Count ?? 0,
-                FrameworksCount = entity.Memberships?.Count(m => m.Status != Core.Enums.OrganizationMembershipStatus.DELETED) ?? 0
+                FrameworksCount = entity.Memberships?.Count(m => m.Status != Core.Enums.OrganizationMembershipStatus.DELETED) ?? 0,
+                LastModificationDate = entity.LastModificationDate
+
             };
         }
 
