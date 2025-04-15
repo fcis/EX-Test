@@ -184,7 +184,10 @@ namespace Application.Services
         {
             try
             {
-                var organization = await _unitOfWork.Organizations.GetByIdAsync(id);
+                await _unitOfWork.BeginTransactionAsync();
+
+                // Get organization with its current departments
+                var organization = await _unitOfWork.Organizations.GetOrganizationWithDepartmentsAsync(id);
                 if (organization == null || organization.Status == OrganizationStatus.DELETED)
                 {
                     return ApiResponse<OrganizationDto>.ErrorResponse("Organization not found", 404);
@@ -198,6 +201,7 @@ namespace Application.Services
 
                     if (existingByEmail != null)
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         return ApiResponse<OrganizationDto>.ErrorResponse("An organization with this email already exists");
                     }
                 }
@@ -210,11 +214,12 @@ namespace Application.Services
 
                     if (existingByName != null)
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         return ApiResponse<OrganizationDto>.ErrorResponse("An organization with this name already exists");
                     }
                 }
 
-                // Update organization
+                // Update organization properties
                 organization.Name = updateDto.Name;
                 organization.Website = updateDto.Website;
                 organization.Email = updateDto.Email;
@@ -226,7 +231,95 @@ namespace Application.Services
                 organization.LastModificationDate = DateTime.UtcNow;
 
                 _unitOfWork.Organizations.Update(organization);
+
+                // Handle departments if provided
+                if (updateDto.Departments != null && updateDto.Departments.Any())
+                {
+                    var currentUserId = _currentUserService.UserId ?? 0;
+                    var now = DateTime.UtcNow;
+
+                    // For checking duplicate names
+                    var deptNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    // First check for duplicates among non-deleted departments within the request
+                    foreach (var dept in updateDto.Departments.Where(d => !d.IsDeleted))
+                    {
+                        if (!deptNames.Add(dept.Name))
+                        {
+                            await _unitOfWork.RollbackTransactionAsync();
+                            return ApiResponse<OrganizationDto>.ErrorResponse($"Duplicate department name: {dept.Name}");
+                        }
+                    }
+
+                    // Process each department in the list
+                    foreach (var deptDto in updateDto.Departments)
+                    {
+                        if (deptDto.Id.HasValue)
+                        {
+                            // Existing department
+                            var existingDept = await _unitOfWork.OrganizationDepartments.GetByIdAsync(deptDto.Id.Value);
+
+                            // Verify the department exists and belongs to this organization
+                            if (existingDept == null || existingDept.OrganizationId != id)
+                            {
+                                await _unitOfWork.RollbackTransactionAsync();
+                                return ApiResponse<OrganizationDto>.ErrorResponse($"Department with ID {deptDto.Id} not found");
+                            }
+
+                            if (deptDto.IsDeleted)
+                            {
+                                // Mark for deletion - check if it can be deleted first
+                                var usersCount = await _unitOfWork.Users.CountAsync(u => u.OrganizationDepartmentId == deptDto.Id);
+                                if (usersCount > 0)
+                                {
+                                    await _unitOfWork.RollbackTransactionAsync();
+                                    return ApiResponse<OrganizationDto>.ErrorResponse($"Cannot delete department '{existingDept.Name}' because it has associated users");
+                                }
+
+                                // Mark as deleted
+                                existingDept.Deleted = true;
+                                existingDept.LastModificationDate = now;
+                                existingDept.LastModificationUser = currentUserId;
+                            }
+                            else if (existingDept.Deleted)
+                            {
+                                // Undelete and update
+                                existingDept.Deleted = false;
+                                existingDept.Name = deptDto.Name;
+                                existingDept.LastModificationDate = now;
+                                existingDept.LastModificationUser = currentUserId;
+                            }
+                            else
+                            {
+                                // Just update
+                                existingDept.Name = deptDto.Name;
+                                existingDept.LastModificationDate = now;
+                                existingDept.LastModificationUser = currentUserId;
+                            }
+
+                            _unitOfWork.OrganizationDepartments.Update(existingDept);
+                        }
+                        else if (!deptDto.IsDeleted)
+                        {
+                            // New department (only add if not marked for deletion)
+                            var newDept = new OrganizationDepartments
+                            {
+                                OrganizationId = id,
+                                Name = deptDto.Name,
+                                Deleted = false,
+                                CreationDate = now,
+                                CreatedUser = currentUserId,
+                                LastModificationDate = now,
+                                LastModificationUser = currentUserId
+                            };
+
+                            _unitOfWork.OrganizationDepartments.Add(newDept);
+                        }
+                    }
+                }
+
                 await _unitOfWork.CompleteAsync();
+                await _unitOfWork.CommitTransactionAsync();
 
                 await _auditService.LogActionAsync("Organization", organization.Id, "EDIT",
                     $"Updated organization: {organization.Name}");
@@ -239,11 +332,11 @@ namespace Application.Services
             }
             catch (Exception ex)
             {
+                await _unitOfWork.RollbackTransactionAsync();
                 _logger.LogError(ex, "Error updating organization with ID {Id}", id);
                 return ApiResponse<OrganizationDto>.ErrorResponse("Failed to update organization");
             }
         }
-
         public async Task<ApiResponse<bool>> DeleteOrganizationAsync(long id)
         {
             try

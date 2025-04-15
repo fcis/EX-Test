@@ -92,6 +92,8 @@ namespace Application.DTOs.Organization
         public string? Description { get; set; }
 
         public OrganizationStatus Status { get; set; }
+        // Add departments management
+        public List<UpdateOrganizationDepartmentDto>? Departments { get; set; }
     }
 
     public class OrganizationDepartmentDto
@@ -112,10 +114,17 @@ namespace Application.DTOs.Organization
         public string Name { get; set; } = string.Empty;
     }
 
+    // Enhanced department DTO to handle existing or new departments
     public class UpdateOrganizationDepartmentDto
     {
+        // ID will be null for new departments, has value for existing ones
+        public long? Id { get; set; }
+
         [Required]
         [StringLength(100, MinimumLength = 2)]
         public string Name { get; set; } = string.Empty;
+
+        // Flag to indicate if the department should be deleted
+        public bool IsDeleted { get; set; }
     }
 }
