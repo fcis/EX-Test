@@ -3,6 +3,7 @@ using Core.Common;
 using Core.Entities.Identitiy;
 using Core.Interfaces.Authentication;
 using Core.Models.Users;
+using Infrastructure.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -72,6 +73,7 @@ namespace Api.Controllers
         /// Create a new user
         /// </summary>
         [HttpPost]
+        [HasPermission(Constants.Permissions.CreateUser)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]

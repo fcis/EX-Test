@@ -38,12 +38,12 @@ namespace Infrastructure.Data.Seeds
                     },
                     new Role
                     {
-                        Name = Constants.Roles.OrganizationAdmin,
+                        Name = Constants.Roles.Auditor,
                         Portal = Portal.ORGANIZATION
                     },
                     new Role
                     {
-                        Name = Constants.Roles.OrganizationUser,
+                        Name = Constants.Roles.ComplianceManager,
                         Portal = Portal.ORGANIZATION
                     }
                 };

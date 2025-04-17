@@ -31,19 +31,38 @@ namespace Infrastructure.Data.Seeds
                 // Define permissions based on Constants
                 var permissionNames = new List<string>
                 {
+                    // Framework permissions
                     Constants.Permissions.ViewFrameworks,
                     Constants.Permissions.CreateFramework,
                     Constants.Permissions.EditFramework,
                     Constants.Permissions.DeleteFramework,
+    
+                    // Organization permissions
                     Constants.Permissions.ViewOrganizations,
                     Constants.Permissions.CreateOrganization,
                     Constants.Permissions.EditOrganization,
                     Constants.Permissions.DeleteOrganization,
+    
+                    // User permissions
                     Constants.Permissions.ViewUsers,
                     Constants.Permissions.CreateUser,
                     Constants.Permissions.EditUser,
                     Constants.Permissions.DeleteUser,
-                    Constants.Permissions.ViewAudit
+    
+                    // Audit permissions
+                    Constants.Permissions.ViewAudit,
+    
+                    // Category permissions
+                    Constants.Permissions.ViewCategories,
+                    Constants.Permissions.CreateCategory,
+                    Constants.Permissions.EditCategory,
+                    Constants.Permissions.DeleteCategory,
+    
+                    // Clause permissions
+                    Constants.Permissions.ViewClauses,
+                    Constants.Permissions.CreateClause,
+                    Constants.Permissions.EditClause,
+                    Constants.Permissions.DeleteClause
                 };
 
                 var permissions = permissionNames.Select(name => new Permission { Name = name }).ToList();
@@ -52,26 +71,67 @@ namespace Infrastructure.Data.Seeds
                 await _context.Permissions.AddRangeAsync(permissions);
                 await _context.SaveChangesAsync();
 
-                // Get admin role
-                var adminRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == Constants.Roles.Admin);
-                if (adminRole == null)
+                // Get all roles
+                var roles = await _context.Roles.ToListAsync();
+
+                // Define permission mappings for different roles
+                var permissionsByRole = new Dictionary<string, List<string>>
                 {
-                    Console.WriteLine("Admin role not found. Make sure RoleSeed has run first.");
-                    return;
+                    // Admin gets all permissions
+                    [Constants.Roles.Admin] = permissionNames.ToList(),
+
+                    // Organization Admin gets limited permissions
+                    [Constants.Roles.Auditor] = new List<string>
+                        {
+                            Constants.Permissions.ViewFrameworks,
+                            Constants.Permissions.ViewOrganizations,
+                            Constants.Permissions.EditOrganization,
+                            Constants.Permissions.ViewUsers,
+                            Constants.Permissions.CreateUser,
+                            Constants.Permissions.EditUser
+                        },
+
+                    // Organization User gets minimal permissions
+                    [Constants.Roles.ComplianceManager] = new List<string>
+                        {
+                            Constants.Permissions.ViewFrameworks,
+                            Constants.Permissions.ViewOrganizations
+                        }
+                };
+
+                // Get all permissions from the database after saving
+                var permissionEntities = await _context.Permissions.ToListAsync();
+                var permissionMap = permissionEntities.ToDictionary(p => p.Name, p => p.Id);
+
+                // Assign permissions to roles
+                var rolePermissionsToAdd = new List<RolePermissions>();
+
+                foreach (var role in roles)
+                {
+                    if (permissionsByRole.TryGetValue(role.Name, out var rolePermissions))
+                    {
+                        foreach (var permName in rolePermissions)
+                        {
+                            if (permissionMap.TryGetValue(permName, out var permId))
+                            {
+                                rolePermissionsToAdd.Add(new RolePermissions
+                                {
+                                    RoleId = role.Id,
+                                    PermissionId = permId
+                                });
+                            }
+                        }
+                    }
                 }
 
-                // Assign all permissions to admin role
-                var permissionEntities = await _context.Permissions.ToListAsync();
-                var rolePermissions = permissionEntities.Select(p => new RolePermissions
+                // Add all role permissions
+                if (rolePermissionsToAdd.Any())
                 {
-                    RoleId = adminRole.Id,
-                    PermissionId = p.Id
-                }).ToList();
+                    await _context.RolePermissions.AddRangeAsync(rolePermissionsToAdd);
+                    await _context.SaveChangesAsync();
+                }
 
-                await _context.RolePermissions.AddRangeAsync(rolePermissions);
-                await _context.SaveChangesAsync();
-
-                Console.WriteLine("Permissions seeded and assigned to admin role successfully");
+                Console.WriteLine("Permissions seeded and assigned to roles successfully");
             }
             catch (Exception ex)
             {

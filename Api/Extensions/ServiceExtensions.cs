@@ -6,6 +6,7 @@ using Core.Common;
 using Infrastructure.Authentication;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -37,13 +38,31 @@ namespace Api.Extensions
 
             // Configure Authentication
             ConfigureAuthentication(services, configuration);
-
+            // Configure Authorization with permissions
+            ConfigureAuthorization(services);
             // Configure Swagger
             ConfigureSwagger(services);
 
             return services;
         }
+        private static void ConfigureAuthorization(IServiceCollection services)
+        {
+            services.AddAuthorization(options =>
+            {
+                // Add policies for each permission defined in Constants
+                foreach (var field in typeof(Constants.Permissions).GetFields())
+                {
+                    var permission = field.GetValue(null)?.ToString();
+                    if (!string.IsNullOrEmpty(permission))
+                    {
+                        options.AddPolicy(permission, policy =>
+                            policy.Requirements.Add(new Infrastructure.Authorization.PermissionRequirement(permission)));
+                    }
+                }
+            });
 
+            services.AddScoped<IAuthorizationHandler, Infrastructure.Authorization.PermissionAuthorizationHandler>();
+        }
         private static void ConfigureAuthentication(IServiceCollection services, IConfiguration configuration)
         {
             // Get JWT settings from configuration

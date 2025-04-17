@@ -1,6 +1,7 @@
 ﻿using Application.DTOs.Category;
 using Application.Interfaces;
 using Core.Common;
+using Infrastructure.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,6 +27,7 @@ namespace Api.Controllers
         /// Get all categories with pagination
         /// </summary>
         [HttpGet]
+        [HasPermission(Constants.Permissions.ViewCategories)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetCategories([FromQuery] PagingParameters pagingParameters)
@@ -70,6 +72,7 @@ namespace Api.Controllers
         /// Create a new category
         /// </summary>
         [HttpPost]
+        [HasPermission(Constants.Permissions.CreateCategory)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]

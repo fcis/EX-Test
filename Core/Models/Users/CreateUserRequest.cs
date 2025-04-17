@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Core.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -28,6 +29,9 @@ namespace Core.Models.Users
         [Required]
         [Compare("Password")]
         public string ConfirmPassword { get; set; } = string.Empty;
+
+        // Add status field
+        public UserStatus Status { get; set; } = UserStatus.NEW; // Default to NEW if not specified
 
         [Required]
         public long RoleId { get; set; }

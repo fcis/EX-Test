@@ -156,7 +156,7 @@ namespace Application.Services
                     OrganizationDepartmentId = request.OrganizationDepartmentId,
                     Name = request.Name,
                     Password = _passwordHasher.HashPassword(request.Password),
-                    Status = UserStatus.NEW,
+                    Status = request.Status,
                     CreatedAt = DateTime.UtcNow,
                     LastModificationDate = DateTime.UtcNow
                 };
