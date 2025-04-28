@@ -23,6 +23,7 @@ namespace Application.Extensions
             services.AddScoped<IOrganizationService, OrganizationService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IAssessmentService, AssessmentService>();
 
             return services;
         }
