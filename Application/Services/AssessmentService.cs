@@ -52,29 +52,11 @@ namespace Application.Services
                     {
                         a => a.Organization,
                         a => a.FrameworkVersion,
-                        a => a.FrameworkVersion.Framework
+                        a => a.FrameworkVersion.Framework,
+                        a => a.AssessmentItems
                     });
 
-                var assessmentDtos = new List<AssessmentListDto>();
-                foreach (var assessment in assessments.Items)
-                {
-                    var progress = await _unitOfWork.Assessments.GetAssessmentCompletionPercentageAsync(assessment.Id);
-
-                    assessmentDtos.Add(new AssessmentListDto
-                    {
-                        Id = assessment.Id,
-                        OrganizationId = assessment.OrganizationId,
-                        OrganizationName = assessment.Organization.Name,
-                        FrameworkVersionId = assessment.FrameworkVersionId,
-                        FrameworkName = assessment.FrameworkVersion.Framework.Name,
-                        FrameworkVersionName = assessment.FrameworkVersion.Name,
-                        Status = assessment.Status,
-                        StartDate = assessment.StartDate,
-                        CompletionDate = assessment.CompletionDate,
-                        CreationDate = assessment.CreationDate,
-                        Progress = progress
-                    });
-                }
+                var assessmentDtos = assessments.Items.Select(a => a.ToListDto()).ToList();
 
                 var pagedResult = new PagedList<AssessmentListDto>(
                     assessmentDtos,
@@ -97,26 +79,7 @@ namespace Application.Services
             {
                 var assessments = await _unitOfWork.Assessments.GetAssessmentsByOrganizationAsync(organizationId, pagingParameters);
 
-                var assessmentDtos = new List<AssessmentListDto>();
-                foreach (var assessment in assessments.Items)
-                {
-                    var progress = await _unitOfWork.Assessments.GetAssessmentCompletionPercentageAsync(assessment.Id);
-
-                    assessmentDtos.Add(new AssessmentListDto
-                    {
-                        Id = assessment.Id,
-                        OrganizationId = assessment.OrganizationId,
-                        OrganizationName = assessment.Organization.Name,
-                        FrameworkVersionId = assessment.FrameworkVersionId,
-                        FrameworkName = assessment.FrameworkVersion.Framework.Name,
-                        FrameworkVersionName = assessment.FrameworkVersion.Name,
-                        Status = assessment.Status,
-                        StartDate = assessment.StartDate,
-                        CompletionDate = assessment.CompletionDate,
-                        CreationDate = assessment.CreationDate,
-                        Progress = progress
-                    });
-                }
+                var assessmentDtos = assessments.Items.Select(a => a.ToListDto()).ToList();
 
                 var pagedResult = new PagedList<AssessmentListDto>(
                     assessmentDtos,
@@ -143,36 +106,7 @@ namespace Application.Services
                     return ApiResponse<AssessmentDto>.ErrorResponse("Assessment not found", 404);
                 }
 
-                // Calculate statistics for the assessment
-                var totalItems = assessment.AssessmentItems.Count;
-                var completedItems = assessment.AssessmentItems.Count(ai => ai.Status != ComplianceStatus.NOT_ASSESSED);
-                var conformityItems = assessment.AssessmentItems.Count(ai => ai.Status == ComplianceStatus.CONFORMITY);
-                var nonConformityItems = assessment.AssessmentItems.Count(ai => ai.Status == ComplianceStatus.NON_CONFORMITY);
-                var conformityWithNotesItems = assessment.AssessmentItems.Count(ai => ai.Status == ComplianceStatus.CONFORMITY_WITH_NOTES);
-
-                var assessmentDto = new AssessmentDto
-                {
-                    Id = assessment.Id,
-                    OrganizationId = assessment.OrganizationId,
-                    OrganizationName = assessment.Organization.Name,
-                    FrameworkVersionId = assessment.FrameworkVersionId,
-                    FrameworkName = assessment.FrameworkVersion.Framework.Name,
-                    FrameworkVersionName = assessment.FrameworkVersion.Name,
-                    Status = assessment.Status,
-                    StartDate = assessment.StartDate,
-                    CompletionDate = assessment.CompletionDate,
-                    Notes = assessment.Notes,
-                    CreationDate = assessment.CreationDate,
-                    CreatedUser = assessment.CreatedUser,
-                    LastModificationDate = assessment.LastModificationDate,
-                    LastModificationUser = assessment.LastModificationUser,
-                    TotalItems = totalItems,
-                    CompletedItems = completedItems,
-                    ConformityItems = conformityItems,
-                    NonConformityItems = nonConformityItems,
-                    ConformityWithNotesItems = conformityWithNotesItems
-                };
-
+                var assessmentDto = assessment.ToDto();
                 return ApiResponse<AssessmentDto>.SuccessResponse(assessmentDto);
             }
             catch (Exception ex)
@@ -224,20 +158,12 @@ namespace Application.Services
                     var currentUserId = _currentUserService.UserId ?? 0;
                     var now = DateTime.UtcNow;
 
-                    // Create the assessment
-                    var assessment = new Assessment
-                    {
-                        OrganizationId = createDto.OrganizationId,
-                        FrameworkVersionId = createDto.FrameworkVersionId,
-                        Status = AssessmentStatus.DRAFT,
-                        StartDate = now,
-                        Notes = createDto.Notes,
-                        Deleted = false,
-                        CreationDate = now,
-                        CreatedUser = currentUserId,
-                        LastModificationDate = now,
-                        LastModificationUser = currentUserId
-                    };
+                    // Create the assessment using the mapper
+                    var assessment = createDto.ToEntity();
+                    assessment.CreationDate = now;
+                    assessment.CreatedUser = currentUserId;
+                    assessment.LastModificationDate = now;
+                    assessment.LastModificationUser = currentUserId;
 
                     _unitOfWork.Assessments.Add(assessment);
                     await _unitOfWork.CompleteAsync();
@@ -399,48 +325,12 @@ namespace Application.Services
                 var assessmentItemDtos = new List<AssessmentItemDto>();
                 foreach (var item in assessmentItems.Items)
                 {
-                    var documents = await _unitOfWork.AssessmentItemDocuments.GetDocumentsByAssessmentItemAsync(item.Id);
-                    var checklistItems = await _unitOfWork.AssessmentItemCheckLists.GetCheckListItemsByAssessmentItemAsync(item.Id);
+                    // Load related data
+                    await _unitOfWork.AssessmentItemDocuments.FindAsync(d => d.AssessmentItemId == item.Id && !d.Deleted);
+                    await _unitOfWork.AssessmentItemCheckLists.FindAsync(cl => cl.AssessmentItemId == item.Id && !cl.Deleted);
 
-                    assessmentItemDtos.Add(new AssessmentItemDto
-                    {
-                        Id = item.Id,
-                        AssessmentId = item.AssessmentId,
-                        ClauseId = item.ClauseId,
-                        ClauseName = item.Clause.Name,
-                        Status = item.Status,
-                        Notes = item.Notes,
-                        CorrectiveActions = item.CorrectiveActions,
-                        AssignedDepartmentId = item.AssignedDepartmentId,
-                        AssignedDepartmentName = item.AssignedDepartment?.Name,
-                        DueDate = item.DueDate,
-                        CreationDate = item.CreationDate,
-                        CreatedUser = item.CreatedUser,
-                        LastModificationDate = item.LastModificationDate,
-                        LastModificationUser = item.LastModificationUser,
-                        Documents = documents.Select(d => new AssessmentItemDocumentDto
-                        {
-                            Id = d.Id,
-                            AssessmentItemId = d.AssessmentItemId,
-                            FileName = d.FileName,
-                            ContentType = d.ContentType,
-                            FileSize = d.FileSize,
-                            UploadDate = d.UploadDate,
-                            DocumentType = d.DocumentType,
-                            ReleaseDate = d.ReleaseDate,
-                            DepartmentId = d.DepartmentId,
-                            DepartmentName = d.Department?.Name
-                        }).ToList(),
-                        CheckListItems = checklistItems.Select(cl => new AssessmentItemCheckListDto
-                        {
-                            Id = cl.Id,
-                            AssessmentItemId = cl.AssessmentItemId,
-                            CheckListId = cl.CheckListId,
-                            CheckListName = cl.CheckList.Name,
-                            IsChecked = cl.IsChecked,
-                            Notes = cl.Notes
-                        }).ToList()
-                    });
+                    // Use mapper
+                    assessmentItemDtos.Add(item.ToDto());
                 }
 
                 var pagedResult = new PagedList<AssessmentItemDto>(
@@ -468,49 +358,8 @@ namespace Application.Services
                     return ApiResponse<AssessmentItemDto>.ErrorResponse("Assessment item not found", 404);
                 }
 
-                var documents = await _unitOfWork.AssessmentItemDocuments.GetDocumentsByAssessmentItemAsync(assessmentItem.Id);
-                var checklistItems = await _unitOfWork.AssessmentItemCheckLists.GetCheckListItemsByAssessmentItemAsync(assessmentItem.Id);
-
-                var assessmentItemDto = new AssessmentItemDto
-                {
-                    Id = assessmentItem.Id,
-                    AssessmentId = assessmentItem.AssessmentId,
-                    ClauseId = assessmentItem.ClauseId,
-                    ClauseName = assessmentItem.Clause.Name,
-                    Status = assessmentItem.Status,
-                    Notes = assessmentItem.Notes,
-                    CorrectiveActions = assessmentItem.CorrectiveActions,
-                    AssignedDepartmentId = assessmentItem.AssignedDepartmentId,
-                    AssignedDepartmentName = assessmentItem.AssignedDepartment?.Name,
-                    DueDate = assessmentItem.DueDate,
-                    CreationDate = assessmentItem.CreationDate,
-                    CreatedUser = assessmentItem.CreatedUser,
-                    LastModificationDate = assessmentItem.LastModificationDate,
-                    LastModificationUser = assessmentItem.LastModificationUser,
-                    Documents = documents.Select(d => new AssessmentItemDocumentDto
-                    {
-                        Id = d.Id,
-                        AssessmentItemId = d.AssessmentItemId,
-                        FileName = d.FileName,
-                        ContentType = d.ContentType,
-                        FileSize = d.FileSize,
-                        UploadDate = d.UploadDate,
-                        DocumentType = d.DocumentType,
-                        ReleaseDate = d.ReleaseDate,
-                        DepartmentId = d.DepartmentId,
-                        DepartmentName = d.Department?.Name
-                    }).ToList(),
-                    CheckListItems = checklistItems.Select(cl => new AssessmentItemCheckListDto
-                    {
-                        Id = cl.Id,
-                        AssessmentItemId = cl.AssessmentItemId,
-                        CheckListId = cl.CheckListId,
-                        CheckListName = cl.CheckList.Name,
-                        IsChecked = cl.IsChecked,
-                        Notes = cl.Notes
-                    }).ToList()
-                };
-
+                // Use mapper
+                var assessmentItemDto = assessmentItem.ToDto();
                 return ApiResponse<AssessmentItemDto>.SuccessResponse(assessmentItemDto);
             }
             catch (Exception ex)
@@ -628,28 +477,8 @@ namespace Application.Services
                 await _auditService.LogActionAsync("AssessmentItemDocument", document.Id, "ADD",
                     $"Uploaded document: {originalFileName}");
 
-                // Get department name if applicable
-                string? departmentName = null;
-                if (uploadDto.DepartmentId.HasValue)
-                {
-                    var department = await _unitOfWork.OrganizationDepartments.GetByIdAsync(uploadDto.DepartmentId.Value);
-                    departmentName = department?.Name;
-                }
-
-                var documentDto = new AssessmentItemDocumentDto
-                {
-                    Id = document.Id,
-                    AssessmentItemId = document.AssessmentItemId,
-                    FileName = document.FileName,
-                    ContentType = document.ContentType,
-                    FileSize = document.FileSize,
-                    UploadDate = document.UploadDate,
-                    DocumentType = document.DocumentType,
-                    ReleaseDate = document.ReleaseDate,
-                    DepartmentId = document.DepartmentId,
-                    DepartmentName = departmentName
-                };
-
+                // Use mapper
+                var documentDto = document.ToDto();
                 return ApiResponse<AssessmentItemDocumentDto>.SuccessResponse(documentDto, "Document uploaded successfully");
             }
             catch (Exception ex)
@@ -780,16 +609,9 @@ namespace Application.Services
                         $"Updated checklist item: {checkList.Name}, IsChecked: {updateDto.IsChecked}");
                 }
 
-                var checkListDto = new AssessmentItemCheckListDto
-                {
-                    Id = assessmentCheckList.Id,
-                    AssessmentItemId = assessmentCheckList.AssessmentItemId,
-                    CheckListId = assessmentCheckList.CheckListId,
-                    CheckListName = checkList.Name,
-                    IsChecked = assessmentCheckList.IsChecked,
-                    Notes = assessmentCheckList.Notes
-                };
-
+                // Use mapper
+                assessmentCheckList.CheckList = checkList; // Ensure the navigation property is set for mapping
+                var checkListDto = assessmentCheckList.ToDto();
                 return ApiResponse<AssessmentItemCheckListDto>.SuccessResponse(checkListDto, "Checklist item updated successfully");
             }
             catch (Exception ex)

@@ -1,4 +1,5 @@
-﻿using Application.DTOs.Framework;
+﻿using Application.DTOs.Assessment;
+using Application.DTOs.Framework;
 using Application.DTOs.Category;
 using Application.DTOs.Clause;
 using Application.DTOs.Organization;
@@ -7,10 +8,11 @@ using Application.DTOs.Audit;
 using Core.Entities;
 using Core.Entities.Identitiy;
 using System.Collections.Generic;
+using System;
+using System.Linq;
 
 namespace Application.Mappings
 {
-
     public static class SimpleMapper
     {
         // Framework mappings
@@ -217,7 +219,6 @@ namespace Application.Mappings
                 UsersCount = entity.Users?.Count ?? 0,
                 FrameworksCount = entity.Memberships?.Count(m => m.Status != Core.Enums.OrganizationMembershipStatus.DELETED) ?? 0,
                 LastModificationDate = entity.LastModificationDate
-
             };
         }
 
@@ -337,6 +338,136 @@ namespace Application.Mappings
                 Entity = entity.Entity,
                 EntityId = entity.EntityId,
                 Details = entity.Details
+            };
+        }
+
+        // Assessment mappings
+        public static AssessmentDto ToDto(this Assessment entity)
+        {
+            if (entity == null) return null;
+
+            return new AssessmentDto
+            {
+                Id = entity.Id,
+                OrganizationId = entity.OrganizationId,
+                OrganizationName = entity.Organization?.Name ?? string.Empty,
+                FrameworkVersionId = entity.FrameworkVersionId,
+                FrameworkName = entity.FrameworkVersion?.Framework?.Name ?? string.Empty,
+                FrameworkVersionName = entity.FrameworkVersion?.Name ?? string.Empty,
+                Status = entity.Status,
+                StartDate = entity.StartDate,
+                CompletionDate = entity.CompletionDate,
+                Notes = entity.Notes,
+                CreationDate = entity.CreationDate,
+                CreatedUser = entity.CreatedUser,
+                LastModificationDate = entity.LastModificationDate,
+                LastModificationUser = entity.LastModificationUser,
+                TotalItems = entity.AssessmentItems?.Count(ai => !ai.Deleted) ?? 0,
+                CompletedItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status != Core.Enums.ComplianceStatus.NOT_ASSESSED) ?? 0,
+                ConformityItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status == Core.Enums.ComplianceStatus.CONFORMITY) ?? 0,
+                NonConformityItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status == Core.Enums.ComplianceStatus.NON_CONFORMITY) ?? 0,
+                ConformityWithNotesItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status == Core.Enums.ComplianceStatus.CONFORMITY_WITH_NOTES) ?? 0
+            };
+        }
+
+        public static AssessmentListDto ToListDto(this Assessment entity)
+        {
+            if (entity == null) return null;
+
+            var totalItems = entity.AssessmentItems?.Count(ai => !ai.Deleted) ?? 0;
+            var completedItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status != Core.Enums.ComplianceStatus.NOT_ASSESSED) ?? 0;
+            var progressPercentage = totalItems > 0 ? (int)Math.Round((double)completedItems / totalItems * 100) : 0;
+
+            return new AssessmentListDto
+            {
+                Id = entity.Id,
+                OrganizationId = entity.OrganizationId,
+                OrganizationName = entity.Organization?.Name ?? string.Empty,
+                FrameworkVersionId = entity.FrameworkVersionId,
+                FrameworkName = entity.FrameworkVersion?.Framework?.Name ?? string.Empty,
+                FrameworkVersionName = entity.FrameworkVersion?.Name ?? string.Empty,
+                Status = entity.Status,
+                StartDate = entity.StartDate,
+                CompletionDate = entity.CompletionDate,
+                CreationDate = entity.CreationDate,
+                Progress = progressPercentage
+            };
+        }
+
+        public static Assessment ToEntity(this CreateAssessmentDto dto)
+        {
+            if (dto == null) return null;
+
+            return new Assessment
+            {
+                OrganizationId = dto.OrganizationId,
+                FrameworkVersionId = dto.FrameworkVersionId,
+                Status = Core.Enums.AssessmentStatus.DRAFT,
+                StartDate = DateTime.UtcNow,
+                Notes = dto.Notes,
+                Deleted = false
+            };
+        }
+
+        // AssessmentItem mappings
+        public static AssessmentItemDto ToDto(this AssessmentItem entity)
+        {
+            if (entity == null) return null;
+
+            return new AssessmentItemDto
+            {
+                Id = entity.Id,
+                AssessmentId = entity.AssessmentId,
+                ClauseId = entity.ClauseId,
+                ClauseName = entity.Clause?.Name ?? string.Empty,
+                Status = entity.Status,
+                Notes = entity.Notes,
+                CorrectiveActions = entity.CorrectiveActions,
+                AssignedDepartmentId = entity.AssignedDepartmentId,
+                AssignedDepartmentName = entity.AssignedDepartment?.Name,
+                DueDate = entity.DueDate,
+                CreationDate = entity.CreationDate,
+                CreatedUser = entity.CreatedUser,
+                LastModificationDate = entity.LastModificationDate,
+                LastModificationUser = entity.LastModificationUser,
+                Documents = entity.Documents?.Where(d => !d.Deleted).Select(d => d.ToDto()).ToList() ?? new List<AssessmentItemDocumentDto>(),
+                CheckListItems = entity.CheckListItems?.Where(cl => !cl.Deleted).Select(cl => cl.ToDto()).ToList() ?? new List<AssessmentItemCheckListDto>()
+            };
+        }
+
+        // AssessmentItemDocument mappings
+        public static AssessmentItemDocumentDto ToDto(this AssessmentItemDocument entity)
+        {
+            if (entity == null) return null;
+
+            return new AssessmentItemDocumentDto
+            {
+                Id = entity.Id,
+                AssessmentItemId = entity.AssessmentItemId,
+                FileName = entity.FileName,
+                ContentType = entity.ContentType,
+                FileSize = entity.FileSize,
+                UploadDate = entity.UploadDate,
+                DocumentType = entity.DocumentType,
+                ReleaseDate = entity.ReleaseDate,
+                DepartmentId = entity.DepartmentId,
+                DepartmentName = entity.Department?.Name
+            };
+        }
+
+        // AssessmentItemCheckList mappings
+        public static AssessmentItemCheckListDto ToDto(this AssessmentItemCheckList entity)
+        {
+            if (entity == null) return null;
+
+            return new AssessmentItemCheckListDto
+            {
+                Id = entity.Id,
+                AssessmentItemId = entity.AssessmentItemId,
+                CheckListId = entity.CheckListId,
+                CheckListName = entity.CheckList?.Name ?? string.Empty,
+                IsChecked = entity.IsChecked,
+                Notes = entity.Notes
             };
         }
 

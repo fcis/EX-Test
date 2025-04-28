@@ -37,6 +37,12 @@ namespace Infrastructure.Data
         // Audit
         public DbSet<Audit> Audits { get; set; }
 
+        // From Infrastructure/Data/AppDbContext.cs
+        // Assessment
+        public DbSet<Assessment> Assessments { get; set; }
+        public DbSet<AssessmentItem> AssessmentItems { get; set; }
+        public DbSet<AssessmentItemDocument> AssessmentItemDocuments { get; set; }
+        public DbSet<AssessmentItemCheckList> AssessmentItemCheckLists { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
