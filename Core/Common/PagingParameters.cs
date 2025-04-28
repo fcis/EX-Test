@@ -22,5 +22,7 @@ namespace Core.Common
         public string? SortColumn { get; set; }
         public string? SortOrder { get; set; } // "asc" or "desc"
         public string? SearchTerm { get; set; }
+        public DateTime? SearchByCreationDate { get; set; }
+        public DateTime? SearchByModifyDate { get; set; }
     }
 }

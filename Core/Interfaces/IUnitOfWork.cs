@@ -23,11 +23,16 @@ namespace Core.Interfaces
         IOrganizationRepository Organizations { get; }
         IOrganizationDepartmentsRepository OrganizationDepartments { get; }
         IOrganizationMembershipRepository OrganizationMembershipRepository { get; }
-
         IOrganizationClauseAnswersRepository OrganizationClauseAnswers { get; }
         IOrganizationCheckListAnswersRepository OrganizationCheckListAnswers { get; }
         IRolePermissionsRepository RolePermissions { get; }
         IAuditRepository Audits { get; }
+
+        // New repositories for Assessment feature
+        IAssessmentRepository Assessments { get; }
+        IAssessmentItemRepository AssessmentItems { get; }
+        IAssessmentItemDocumentRepository AssessmentItemDocuments { get; }
+        IAssessmentItemCheckListRepository AssessmentItemCheckLists { get; }
 
         // Transaction methods
         Task<int> CompleteAsync();
