@@ -1,4 +1,4 @@
-﻿// Repositories/GenericRepository.cs
+
 using Core.Common;
 using Core.Entities;
 using Core.Interfaces.Repositories;
@@ -8,16 +8,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Infrastructure.Repositories
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
     {
-        protected readonly AppDbContext _dbContext;
+        protected readonly ApplicationDbContext _dbContext;
         protected readonly DbSet<T> _dbSet;
 
-        public GenericRepository(AppDbContext dbContext)
+        public GenericRepository(ApplicationDbContext dbContext)
         {
             _dbContext = dbContext;
             _dbSet = dbContext.Set<T>();
@@ -127,11 +128,11 @@ namespace Infrastructure.Repositories
         }
 
         public async Task<PagedList<T>> GetPagedListAsync(
-            PagingParameters pagingParameters,
-            Expression<Func<T, bool>>? predicate = null,
-            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
-            List<Expression<Func<T, object>>>? includes = null,
-            bool disableTracking = true)
+       PagingParameters pagingParameters,
+       Expression<Func<T, bool>>? predicate = null,
+       Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+       List<Expression<Func<T, object>>>? includes = null,
+       bool disableTracking = true)
         {
             IQueryable<T> query = _dbSet;
 
@@ -181,9 +182,7 @@ namespace Infrastructure.Repositories
             // Apply search if provided
             if (!string.IsNullOrEmpty(pagingParameters.SearchTerm))
             {
-                // This is simplified. In a real implementation, you'd build a dynamic 
-                // predicate that searches across relevant fields.
-                // For now, we'll skip the implementation as it's complex and depends on entity structure
+                query = ApplySearch(query, pagingParameters.SearchTerm);
             }
 
             // Get total count before pagination
@@ -196,6 +195,81 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             return new PagedList<T>(items, totalCount, pagingParameters.PageNumber, pagingParameters.PageSize);
+        }
+        /// <summary>
+        /// Applies search functionality to a query, searching across string properties
+        /// </summary>
+        private IQueryable<T> ApplySearch(IQueryable<T> query, string searchTerm)
+        {
+            if (string.IsNullOrEmpty(searchTerm))
+                return query;
+
+            searchTerm = searchTerm.ToLower();
+
+            // Get all string properties of the entity type that are directly on the entity (not navigation properties)
+            var stringProperties = typeof(T).GetProperties()
+                .Where(p =>
+                    (p.PropertyType == typeof(string) || p.PropertyType == typeof(string)!) &&
+                    p.CanRead &&
+                    p.GetMethod?.IsPublic == true)
+                .ToList();
+
+            if (!stringProperties.Any())
+                return query;
+
+            // Create a parameter expression for the entity
+            var parameter = Expression.Parameter(typeof(T), "x");
+
+            // Build the OR expression for all string properties
+            Expression? combinedExpression = null;
+
+            foreach (var property in stringProperties)
+            {
+                try
+                {
+                    // Build property access: x.PropertyName
+                    var propertyAccess = Expression.Property(parameter, property);
+
+                    // Handle null values with a null check: x.PropertyName != null
+                    var nullCheck = Expression.NotEqual(propertyAccess, Expression.Constant(null, property.PropertyType));
+
+                    // ToLower() call: x.PropertyName.ToLower()
+                    var toLowerMethodInfo = typeof(string).GetMethod("ToLower", new Type[] { });
+                    var toLowerCall = Expression.Call(propertyAccess, toLowerMethodInfo);
+
+                    // Contains() call: x.PropertyName.ToLower().Contains(searchTerm)
+                    var containsMethodInfo = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+                    var containsCall = Expression.Call(toLowerCall, containsMethodInfo, Expression.Constant(searchTerm));
+
+                    // Combine with null check: x.PropertyName != null && x.PropertyName.ToLower().Contains(searchTerm)
+                    var safePredicate = Expression.AndAlso(nullCheck, containsCall);
+
+                    if (combinedExpression == null)
+                    {
+                        combinedExpression = safePredicate;
+                    }
+                    else
+                    {
+                        // Combine with OR: previousExpression || (x.PropertyName != null && x.PropertyName.ToLower().Contains(searchTerm))
+                        combinedExpression = Expression.OrElse(combinedExpression, safePredicate);
+                    }
+                }
+                catch
+                {
+                    // Skip properties that cause issues with expression building
+                    continue;
+                }
+            }
+
+            // If we couldn't build an expression, return the original query
+            if (combinedExpression == null)
+                return query;
+
+            // Create the lambda expression: x => combined expression
+            var lambda = Expression.Lambda<Func<T, bool>>(combinedExpression, parameter);
+
+            // Apply the where clause to the query
+            return query.Where(lambda);
         }
 
         public void Add(T entity)
@@ -237,6 +311,14 @@ namespace Infrastructure.Repositories
             return _dbSet.Any(e => e.Id == id);
         }
 
+        public async Task<int> CountWithDistinctAsync <TProperty>(Expression<Func<T, bool>> predicate, Expression<Func<T, TProperty>> selector)
+        {
+            return await _dbSet
+                .Where(predicate)
+                .Select(selector)
+                .Distinct()
+                .CountAsync();
+        }
         public async Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null)
         {
             if (predicate == null)
