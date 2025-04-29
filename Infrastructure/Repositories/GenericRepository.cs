@@ -15,10 +15,10 @@ namespace Infrastructure.Repositories
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
     {
-        protected readonly ApplicationDbContext _dbContext;
+        protected readonly AppDbContext  _dbContext;
         protected readonly DbSet<T> _dbSet;
 
-        public GenericRepository(ApplicationDbContext dbContext)
+        public GenericRepository(AppDbContext  dbContext)
         {
             _dbContext = dbContext;
             _dbSet = dbContext.Set<T>();
