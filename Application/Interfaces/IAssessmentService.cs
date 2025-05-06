@@ -13,7 +13,7 @@ namespace Application.Interfaces
         Task<ApiResponse<PagedList<AssessmentListDto>>> GetAssessmentsAsync(PagingParameters pagingParameters);
         Task<ApiResponse<PagedList<AssessmentListDto>>> GetAssessmentsByOrganizationAsync(long organizationId, PagingParameters pagingParameters);
         Task<ApiResponse<AssessmentDto>> GetAssessmentByIdAsync(long id);
-        Task<ApiResponse<AssessmentDto>> CreateAssessmentAsync(CreateAssessmentDto createDto);
+        Task<ApiResponse<AssessmentDto>> StartAssessmentAsync(long organizationMembershipId, string? notes = null);
         Task<ApiResponse<AssessmentDto>> UpdateAssessmentAsync(long id, UpdateAssessmentDto updateDto);
         Task<ApiResponse<bool>> DeleteAssessmentAsync(long id);
 

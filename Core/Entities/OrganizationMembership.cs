@@ -24,5 +24,7 @@ namespace Core.Entities
         public virtual Organization Organization { get; set; } = null!;
         public virtual Framework Framework { get; set; } = null!;
         public virtual FrameworkVersion FrameworkVersion { get; set; } = null!;
+        public virtual Assessment? Assessment { get; set; } // New navigation property
+
     }
 }

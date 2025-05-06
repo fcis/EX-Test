@@ -9,9 +9,10 @@ namespace Application.DTOs.Assessment
     public class AssessmentDto
     {
         public long Id { get; set; }
-        public long OrganizationId { get; set; }
+        public long OrganizationMembershipId { get; set; }
+        public long OrganizationId { get; set; } // Derived from membership
         public string OrganizationName { get; set; } = string.Empty;
-        public long FrameworkVersionId { get; set; }
+        public long FrameworkVersionId { get; set; } // Derived from membership
         public string FrameworkName { get; set; } = string.Empty;
         public string FrameworkVersionName { get; set; } = string.Empty;
         public AssessmentStatus Status { get; set; }
@@ -19,9 +20,8 @@ namespace Application.DTOs.Assessment
         public DateTime StartDate { get; set; }
         public DateTime? CompletionDate { get; set; }
         public string? Notes { get; set; }
-        public DateTime CreationDate { get; set; }
-        public long CreatedUser { get; set; }
         public DateTime LastModificationDate { get; set; }
+        public long StartedUser { get; set; }
         public long LastModificationUser { get; set; }
         public int TotalItems { get; set; }
         public int CompletedItems { get; set; }

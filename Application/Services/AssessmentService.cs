@@ -116,38 +116,25 @@ namespace Application.Services
             }
         }
 
-        public async Task<ApiResponse<AssessmentDto>> CreateAssessmentAsync(CreateAssessmentDto createDto)
+        public async Task<ApiResponse<AssessmentDto>> StartAssessmentAsync(long organizationMembershipId, string? notes = null)
         {
             try
             {
-                // Check if the organization and framework version exist
-                var organization = await _unitOfWork.Organizations.GetByIdAsync(createDto.OrganizationId);
-                if (organization == null || organization.Status == OrganizationStatus.DELETED)
+                // Check if the organization membership exists
+                var membership = await _unitOfWork.OrganizationMembershipRepository.GetByIdAsync(organizationMembershipId);
+                if (membership == null || membership.Status == OrganizationMembershipStatus.DELETED)
                 {
-                    return ApiResponse<AssessmentDto>.ErrorResponse("Organization not found", 404);
+                    return ApiResponse<AssessmentDto>.ErrorResponse("Organization membership not found", 404);
                 }
 
-                var framework = await _unitOfWork.Frameworks.GetByIdAsync(createDto.FrameworkId);
-                if (framework == null || framework.Status == FrameworkStatus.DELETED)
-                {
-                    return ApiResponse<AssessmentDto>.ErrorResponse("Framework not found", 404);
-                }
+                // Check if there's already an assessment for this membership
+                var existingAssessment = await _unitOfWork.Assessments.FindSingleWithIncludesAsync(
+                    a => a.OrganizationMembershipId == organizationMembershipId && !a.Deleted);
 
-                var frameworkVersion = await _unitOfWork.FrameworkVersions.GetByIdAsync(createDto.FrameworkVersionId);
-                if (frameworkVersion == null || frameworkVersion.Status == FrameworkVersionStatus.DELETED || frameworkVersion.FrameworkId != createDto.FrameworkId)
-                {
-                    return ApiResponse<AssessmentDto>.ErrorResponse("Framework version not found or does not belong to the framework", 404);
-                }
-
-                // Check if there's already an active assessment for this organization and framework version
-                var existingAssessment = await _unitOfWork.Assessments.GetAssessmentByOrganizationAndFrameworkVersionAsync(
-                    createDto.OrganizationId, createDto.FrameworkVersionId);
-
-                if (existingAssessment != null &&
-                    (existingAssessment.Status == AssessmentStatus.DRAFT || existingAssessment.Status == AssessmentStatus.IN_PROGRESS))
+                if (existingAssessment != null)
                 {
                     return ApiResponse<AssessmentDto>.ErrorResponse(
-                        "There is already an active assessment for this organization and framework version");
+                        "There is already an assessment for this organization membership");
                 }
 
                 // Start transaction
@@ -158,19 +145,26 @@ namespace Application.Services
                     var currentUserId = _currentUserService.UserId ?? 0;
                     var now = DateTime.UtcNow;
 
-                    // Create the assessment using the mapper
-                    var assessment = createDto.ToEntity();
-                    assessment.CreationDate = now;
-                    assessment.CreatedUser = currentUserId;
-                    assessment.LastModificationDate = now;
-                    assessment.LastModificationUser = currentUserId;
+                    // Create the assessment
+                    var assessment = new Assessment
+                    {
+                        OrganizationMembershipId = organizationMembershipId,
+                        Status = AssessmentStatus.DRAFT,
+                        StartDate = now,
+                        Notes = notes,
+                        Deleted = false,
+                        StartedUser = currentUserId,
+                        LastModificationDate = now,
+                        LastModificationUser = currentUserId
+                    };
 
                     _unitOfWork.Assessments.Add(assessment);
                     await _unitOfWork.CompleteAsync();
 
                     // Retrieve framework categories and clauses to create assessment items
+                    var frameworkVersionId = membership.FrameworkVersionId;
                     var frameworkCategories = await _unitOfWork.FrameworkCategories.FindAsync(
-                        fc => fc.FrameworkVersionId == createDto.FrameworkVersionId && !fc.Deleted);
+                        fc => fc.FrameworkVersionId == frameworkVersionId && !fc.Deleted);
 
                     foreach (var category in frameworkCategories)
                     {
@@ -223,8 +217,13 @@ namespace Application.Services
                     await _unitOfWork.CompleteAsync();
                     await _unitOfWork.CommitTransactionAsync();
 
-                    await _auditService.LogActionAsync("Assessment", assessment.Id, "ADD",
-                        $"Created assessment for organization {organization.Name} and framework {framework.Name} version {frameworkVersion.Name}");
+                    // Get organization and framework information for audit log
+                    var organizationName = membership.Organization.Name;
+                    var frameworkName = membership.Framework.Name;
+                    var frameworkVersionName = membership.FrameworkVersion.Name;
+
+                    await _auditService.LogActionAsync("Assessment", assessment.Id, "START",
+                        $"Started assessment for organization {organizationName} and framework {frameworkName} version {frameworkVersionName}");
 
                     // Get the full assessment DTO to return
                     var assessmentDto = await GetAssessmentByIdAsync(assessment.Id);
@@ -238,11 +237,10 @@ namespace Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating assessment");
-                return ApiResponse<AssessmentDto>.ErrorResponse("Failed to create assessment");
+                _logger.LogError(ex, "Error starting assessment");
+                return ApiResponse<AssessmentDto>.ErrorResponse("Failed to start assessment");
             }
         }
-
         public async Task<ApiResponse<AssessmentDto>> UpdateAssessmentAsync(long id, UpdateAssessmentDto updateDto)
         {
             try

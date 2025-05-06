@@ -24,10 +24,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(a => a.Deleted)
                 .IsRequired();
 
-            builder.Property(a => a.CreationDate)
-                .IsRequired();
-
-            builder.Property(a => a.CreatedUser)
+            builder.Property(a => a.StartedUser)
                 .IsRequired();
 
             builder.Property(a => a.LastModificationDate)
@@ -36,15 +33,10 @@ namespace Infrastructure.Data.Configurations
             builder.Property(a => a.LastModificationUser)
                 .IsRequired();
 
-            // Define relationships
-            builder.HasOne(a => a.Organization)
-                .WithMany()
-                .HasForeignKey(a => a.OrganizationId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasOne(a => a.FrameworkVersion)
-                .WithMany()
-                .HasForeignKey(a => a.FrameworkVersionId)
+            // Define relationship with OrganizationMembership
+            builder.HasOne(a => a.OrganizationMembership)
+                .WithOne(m => m.Assessment)
+                .HasForeignKey<Assessment>(a => a.OrganizationMembershipId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }

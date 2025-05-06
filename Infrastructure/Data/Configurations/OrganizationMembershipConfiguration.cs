@@ -41,6 +41,9 @@ namespace Infrastructure.Data.Configurations
                 .WithMany()
                 .HasForeignKey(m => m.FrameworkVersionId)
                 .OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(m => m.Assessment)
+           .WithOne(a => a.OrganizationMembership)
+           .HasForeignKey<Assessment>(a => a.OrganizationMembershipId);
         }
     }
 }

@@ -95,22 +95,21 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Create a new assessment
+        /// Start a new assessment for an organization membership
         /// </summary>
-        [HttpPost]
+        [HttpPost("start/{organizationMembershipId}")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> CreateAssessment([FromBody] CreateAssessmentDto createDto)
+        public async Task<IActionResult> StartAssessment(long organizationMembershipId, [FromBody] StartAssessmentRequest request)
         {
-            var response = await _assessmentService.CreateAssessmentAsync(createDto);
+            var response = await _assessmentService.StartAssessmentAsync(organizationMembershipId, request.Notes);
 
             if (!response.Success)
                 return StatusCode(response.StatusCode, response);
 
             return CreatedAtAction(nameof(GetAssessmentById), new { id = response.Data.Id }, response);
         }
-
         /// <summary>
         /// Update an existing assessment
         /// </summary>

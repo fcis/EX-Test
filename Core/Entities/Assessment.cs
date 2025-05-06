@@ -11,21 +11,18 @@ namespace Core.Entities
     [Table("assessment")]
     public class Assessment : BaseEntity
     {
-        public long OrganizationId { get; set; }
-        public long FrameworkVersionId { get; set; }
+        public long OrganizationMembershipId { get; set; } // New field
         public AssessmentStatus Status { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime? CompletionDate { get; set; }
         public string? Notes { get; set; }
         public bool Deleted { get; set; }
-        public DateTime CreationDate { get; set; }
-        public long CreatedUser { get; set; }
+        public long StartedUser { get; set; } // Changed from CreatedUser
         public DateTime LastModificationDate { get; set; }
         public long LastModificationUser { get; set; }
 
         // Navigation properties
-        public virtual Organization Organization { get; set; } = null!;
-        public virtual FrameworkVersion FrameworkVersion { get; set; } = null!;
+        public virtual OrganizationMembership OrganizationMembership { get; set; } = null!;
         public virtual ICollection<AssessmentItem> AssessmentItems { get; set; } = new List<AssessmentItem>();
     }
 }

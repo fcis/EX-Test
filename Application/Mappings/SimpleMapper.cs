@@ -349,18 +349,18 @@ namespace Application.Mappings
             return new AssessmentDto
             {
                 Id = entity.Id,
-                OrganizationId = entity.OrganizationId,
-                OrganizationName = entity.Organization?.Name ?? string.Empty,
-                FrameworkVersionId = entity.FrameworkVersionId,
-                FrameworkName = entity.FrameworkVersion?.Framework?.Name ?? string.Empty,
-                FrameworkVersionName = entity.FrameworkVersion?.Name ?? string.Empty,
+                OrganizationMembershipId = entity.OrganizationMembershipId,
+                OrganizationId = entity.OrganizationMembership.OrganizationId,
+                OrganizationName = entity.OrganizationMembership.Organization?.Name ?? string.Empty,
+                FrameworkVersionId = entity.OrganizationMembership.FrameworkVersionId,
+                FrameworkName = entity.OrganizationMembership.Framework?.Name ?? string.Empty,
+                FrameworkVersionName = entity.OrganizationMembership.FrameworkVersion?.Name ?? string.Empty,
                 Status = entity.Status,
                 StartDate = entity.StartDate,
                 CompletionDate = entity.CompletionDate,
                 Notes = entity.Notes,
-                CreationDate = entity.CreationDate,
-                CreatedUser = entity.CreatedUser,
                 LastModificationDate = entity.LastModificationDate,
+                StartedUser = entity.StartedUser,
                 LastModificationUser = entity.LastModificationUser,
                 TotalItems = entity.AssessmentItems?.Count(ai => !ai.Deleted) ?? 0,
                 CompletedItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status != Core.Enums.ComplianceStatus.NOT_ASSESSED) ?? 0,
@@ -369,7 +369,6 @@ namespace Application.Mappings
                 ConformityWithNotesItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status == Core.Enums.ComplianceStatus.CONFORMITY_WITH_NOTES) ?? 0
             };
         }
-
         public static AssessmentListDto ToListDto(this Assessment entity)
         {
             if (entity == null) return null;
