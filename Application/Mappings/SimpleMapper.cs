@@ -10,6 +10,7 @@ using Core.Entities.Identitiy;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using Core.Enums;
 
 namespace Application.Mappings
 {
@@ -374,34 +375,31 @@ namespace Application.Mappings
             if (entity == null) return null;
 
             var totalItems = entity.AssessmentItems?.Count(ai => !ai.Deleted) ?? 0;
-            var completedItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status != Core.Enums.ComplianceStatus.NOT_ASSESSED) ?? 0;
+            var completedItems = entity.AssessmentItems?.Count(ai => !ai.Deleted && ai.Status != ComplianceStatus.NOT_ASSESSED) ?? 0;
             var progressPercentage = totalItems > 0 ? (int)Math.Round((double)completedItems / totalItems * 100) : 0;
 
             return new AssessmentListDto
             {
                 Id = entity.Id,
-                OrganizationId = entity.OrganizationId,
-                OrganizationName = entity.Organization?.Name ?? string.Empty,
-                FrameworkVersionId = entity.FrameworkVersionId,
-                FrameworkName = entity.FrameworkVersion?.Framework?.Name ?? string.Empty,
-                FrameworkVersionName = entity.FrameworkVersion?.Name ?? string.Empty,
+                OrganizationId = entity.OrganizationMembership?.OrganizationId ?? 0,
+                OrganizationName = entity.OrganizationMembership?.Organization?.Name ?? string.Empty,
+                FrameworkVersionId = entity.OrganizationMembership?.FrameworkVersionId ?? 0,
+                FrameworkName = entity.OrganizationMembership?.Framework?.Name ?? string.Empty,
+                FrameworkVersionName = entity.OrganizationMembership?.FrameworkVersion?.Name ?? string.Empty,
                 Status = entity.Status,
                 StartDate = entity.StartDate,
                 CompletionDate = entity.CompletionDate,
-                CreationDate = entity.CreationDate,
                 Progress = progressPercentage
             };
         }
-
         public static Assessment ToEntity(this CreateAssessmentDto dto)
         {
             if (dto == null) return null;
 
             return new Assessment
             {
-                OrganizationId = dto.OrganizationId,
-                FrameworkVersionId = dto.FrameworkVersionId,
-                Status = Core.Enums.AssessmentStatus.DRAFT,
+                OrganizationMembershipId = dto.OrganizationMembershipId,
+                Status = Core.Enums.AssessmentStatus.IN_PROGRESS,
                 StartDate = DateTime.UtcNow,
                 Notes = dto.Notes,
                 Deleted = false

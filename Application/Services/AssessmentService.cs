@@ -50,9 +50,8 @@ namespace Application.Services
                     predicate: a => !a.Deleted,
                     includes: new List<System.Linq.Expressions.Expression<Func<Assessment, object>>>
                     {
-                        a => a.Organization,
-                        a => a.FrameworkVersion,
-                        a => a.FrameworkVersion.Framework,
+                        a => a.OrganizationMembership.Organization,
+                        a => a.OrganizationMembership.FrameworkVersion,
                         a => a.AssessmentItems
                     });
 
@@ -688,9 +687,9 @@ namespace Application.Services
                 var gapAnalysis = new GapAnalysisDto
                 {
                     AssessmentId = assessment.Id,
-                    OrganizationName = assessment.Organization.Name,
-                    FrameworkName = assessment.FrameworkVersion.Framework.Name,
-                    FrameworkVersionName = assessment.FrameworkVersion.Name,
+                    OrganizationName = assessment.OrganizationMembership.Organization.Name,
+                    FrameworkName = assessment.OrganizationMembership.Framework.Name,
+                    FrameworkVersionName = assessment.OrganizationMembership.FrameworkVersion.Name,
                     GeneratedDate = DateTime.UtcNow,
                     TotalControls = totalControls,
                     ConformingControls = conformingControls,
@@ -754,9 +753,9 @@ namespace Application.Services
                 var gapAnalysis = new GapAnalysisDto
                 {
                     AssessmentId = assessment.Id,
-                    OrganizationName = assessment.Organization.Name,
-                    FrameworkName = assessment.FrameworkVersion.Framework.Name,
-                    FrameworkVersionName = assessment.FrameworkVersion.Name,
+                    OrganizationName = assessment.OrganizationMembership.Organization.Name,
+                    FrameworkName = assessment.OrganizationMembership.Framework.Name,
+                    FrameworkVersionName = assessment.OrganizationMembership.FrameworkVersion.Name,
                     GeneratedDate = DateTime.UtcNow,
                     TotalControls = totalControls,
                     ConformingControls = conformingControls,
@@ -808,7 +807,7 @@ namespace Application.Services
             try
             {
                 var assessments = await _unitOfWork.Assessments.FindAsync(
-                    a => a.OrganizationId == organizationId && !a.Deleted);
+                    a => a.OrganizationMembership.OrganizationId == organizationId && !a.Deleted);
 
                 var statusSummary = new Dictionary<string, int>();
                 foreach (var status in Enum.GetValues(typeof(AssessmentStatus)).Cast<AssessmentStatus>())

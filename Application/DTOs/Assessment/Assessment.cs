@@ -49,7 +49,7 @@ namespace Application.DTOs.Assessment
     public class CreateAssessmentDto
     {
         [Required]
-        public long OrganizationId { get; set; }
+        public long OrganizationMembershipId { get; set; }
 
         [Required]
         public long FrameworkId { get; set; }

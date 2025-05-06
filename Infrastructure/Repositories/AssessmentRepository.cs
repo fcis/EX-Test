@@ -20,9 +20,12 @@ namespace Infrastructure.Repositories
         public async Task<Assessment?> GetAssessmentWithItemsAsync(long assessmentId)
         {
             return await _dbContext.Set<Assessment>()
-                .Include(a => a.Organization)
-                .Include(a => a.FrameworkVersion)
-                    .ThenInclude(fv => fv.Framework)
+                .Include(a => a.OrganizationMembership)
+                    .ThenInclude(om => om.Organization)
+                .Include(a => a.OrganizationMembership)
+                    .ThenInclude(om => om.Framework)
+                .Include(a => a.OrganizationMembership)
+                    .ThenInclude(om => om.FrameworkVersion)
                 .Include(a => a.AssessmentItems.Where(ai => !ai.Deleted))
                     .ThenInclude(ai => ai.Clause)
                 .Include(a => a.AssessmentItems.Where(ai => !ai.Deleted))
@@ -38,20 +41,23 @@ namespace Infrastructure.Repositories
         public async Task<Assessment?> GetAssessmentByOrganizationAndFrameworkVersionAsync(long organizationId, long frameworkVersionId)
         {
             return await _dbContext.Set<Assessment>()
-                .Where(a => a.OrganizationId == organizationId &&
-                       a.FrameworkVersionId == frameworkVersionId &&
+
+                .Where(a => a.OrganizationMembership.OrganizationId == organizationId &&
+                       a.OrganizationMembership.FrameworkVersionId == frameworkVersionId &&
                        !a.Deleted)
                 .OrderByDescending(a => a.CreationDate)
                 .FirstOrDefaultAsync();
         }
-
         public async Task<PagedList<Assessment>> GetAssessmentsByOrganizationAsync(long organizationId, PagingParameters pagingParameters)
         {
             var query = _dbContext.Set<Assessment>()
-                .Include(a => a.Organization)
-                .Include(a => a.FrameworkVersion)
-                    .ThenInclude(fv => fv.Framework)
-                .Where(a => a.OrganizationId == organizationId && !a.Deleted);
+                .Include(a => a.OrganizationMembership)
+                    .ThenInclude(om => om.Organization)
+                .Include(a => a.OrganizationMembership)
+                    .ThenInclude(om => om.Framework)
+                .Include(a => a.OrganizationMembership)
+                    .ThenInclude(om => om.FrameworkVersion)
+                .Where(a => a.OrganizationMembership.OrganizationId == organizationId && !a.Deleted);
 
             // Apply search if provided
             if (!string.IsNullOrEmpty(pagingParameters.SearchTerm))
