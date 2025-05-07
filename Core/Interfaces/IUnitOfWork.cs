@@ -28,12 +28,6 @@ namespace Core.Interfaces
         IRolePermissionsRepository RolePermissions { get; }
         IAuditRepository Audits { get; }
 
-        // New repositories for Assessment feature
-        IAssessmentRepository Assessments { get; }
-        IAssessmentItemRepository AssessmentItems { get; }
-        IAssessmentItemDocumentRepository AssessmentItemDocuments { get; }
-        IAssessmentItemCheckListRepository AssessmentItemCheckLists { get; }
-
         // Transaction methods
         Task<int> CompleteAsync();
         Task BeginTransactionAsync();

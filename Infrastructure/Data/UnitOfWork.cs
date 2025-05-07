@@ -32,11 +32,6 @@ public class UnitOfWork : IUnitOfWork
     private IPermissionRepository _permissionRepository;
     private IRolePermissionsRepository _rolePermissionsRepository;
 
-    // Add missing private fields for Assessment repositories
-    private IAssessmentRepository _assessmentRepository;
-    private IAssessmentItemRepository _assessmentItemRepository;
-    private IAssessmentItemDocumentRepository _assessmentItemDocumentRepository;
-    private IAssessmentItemCheckListRepository _assessmentItemCheckListRepository;
 
     public UnitOfWork(AppDbContext context, ILogger<UnitOfWork> logger,
                     IJwtTokenGenerator jwtTokenGenerator,
@@ -66,11 +61,7 @@ public class UnitOfWork : IUnitOfWork
     public IPermissionRepository Permissions => _permissionRepository ??= new PermissionRepository(_context);
     public IRolePermissionsRepository RolePermissions => _rolePermissionsRepository ??= new RolePermissionsRepository(_context);
 
-    // Add missing properties for Assessment repositories
-    public IAssessmentRepository Assessments => _assessmentRepository ??= new AssessmentRepository(_context);
-    public IAssessmentItemRepository AssessmentItems => _assessmentItemRepository ??= new AssessmentItemRepository(_context);
-    public IAssessmentItemDocumentRepository AssessmentItemDocuments => _assessmentItemDocumentRepository ??= new AssessmentItemDocumentRepository(_context);
-    public IAssessmentItemCheckListRepository AssessmentItemCheckLists => _assessmentItemCheckListRepository ??= new AssessmentItemCheckListRepository(_context);
+
 
     public async Task<int> CompleteAsync()
     {
